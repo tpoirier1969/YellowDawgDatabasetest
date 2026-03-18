@@ -1,4 +1,4 @@
-const APP_VERSION = '2026.03.18d';
+const APP_VERSION = '2026.03.18c';
 const STORAGE_KEY = 'yellowdog-fishing-log-v1';
 
 const state = {
@@ -413,31 +413,21 @@ async function startWaterbodyLookup(latlng) {
 }
 
 async function lookupNearbyWaterFeature(lat, lng) {
-  const overpassFeature = await lookupNearbyWaterFeatureOverpass(lat, lng);
-  if (overpassFeature) {
-    return overpassFeature;
-  }
-
-  return lookupNearbyWaterFeatureNominatim(lat, lng);
-}
-
-async function lookupNearbyWaterFeatureOverpass(lat, lng) {
   const query = buildWaterQuery(lat, lng);
   const endpoints = [
     'https://overpass-api.de/api/interpreter',
-    'https://lz4.overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
   ];
 
   let lastError = null;
   for (const endpoint of endpoints) {
     try {
-      const url = `${endpoint}?data=${encodeURIComponent(query)}`;
-      const response = await fetchWithTimeout(url, {
-        method: 'GET',
+      const response = await fetchWithTimeout(endpoint, {
+        method: 'POST',
         headers: {
-          Accept: 'application/json',
+          'Content-Type': 'text/plain;charset=UTF-8',
         },
+        body: query,
       }, 12000);
 
       if (!response.ok) {
@@ -445,96 +435,27 @@ async function lookupNearbyWaterFeatureOverpass(lat, lng) {
       }
 
       const payload = await response.json();
-      const best = pickBestWaterFeature(payload?.elements || [], lat, lng);
-      if (best) {
-        return best;
-      }
+      return pickBestWaterFeature(payload?.elements || [], lat, lng);
     } catch (error) {
       lastError = error;
     }
   }
 
-  if (lastError) {
-    console.warn('Overpass water lookup failed across all mirrors:', lastError);
-  }
-  return null;
+  throw lastError || new Error('Water lookup failed.');
 }
 
 function buildWaterQuery(lat, lng) {
-  const radiusMeters = 1400;
+  const radiusMeters = 450;
   return `[out:json][timeout:12];
 (
-  node(around:${radiusMeters},${lat},${lng})["waterway"~"^(river|stream|brook|canal)$"]["name"];
-  way(around:${radiusMeters},${lat},${lng})["waterway"~"^(river|stream|brook|canal)$"]["name"];
-  relation(around:${radiusMeters},${lat},${lng})["waterway"~"^(river|stream|brook|canal)$"]["name"];
+  node(around:${radiusMeters},${lat},${lng})["waterway"]["name"];
+  way(around:${radiusMeters},${lat},${lng})["waterway"]["name"];
   node(around:${radiusMeters},${lat},${lng})["natural"="water"]["name"];
   way(around:${radiusMeters},${lat},${lng})["natural"="water"]["name"];
-  relation(around:${radiusMeters},${lat},${lng})["natural"="water"]["name"];
   node(around:${radiusMeters},${lat},${lng})["water"]["name"];
   way(around:${radiusMeters},${lat},${lng})["water"]["name"];
-  relation(around:${radiusMeters},${lat},${lng})["water"]["name"];
-  way(around:${radiusMeters},${lat},${lng})["landuse"="reservoir"]["name"];
-  relation(around:${radiusMeters},${lat},${lng})["landuse"="reservoir"]["name"];
 );
-out body geom;`;
-}
-
-async function lookupNearbyWaterFeatureNominatim(lat, lng) {
-  const params = new URLSearchParams({
-    format: 'jsonv2',
-    lat: String(lat),
-    lon: String(lng),
-    zoom: '14',
-    layer: 'natural',
-    namedetails: '1',
-    addressdetails: '1',
-  });
-
-  const url = `https://nominatim.openstreetmap.org/reverse?${params.toString()}`;
-  const response = await fetchWithTimeout(url, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-    },
-  }, 12000);
-
-  if (!response.ok) {
-    throw new Error(`Nominatim HTTP ${response.status}`);
-  }
-
-  const payload = await response.json();
-  return parseNominatimWaterFeature(payload);
-}
-
-function parseNominatimWaterFeature(payload) {
-  const category = trim(payload?.category).toLowerCase();
-  const type = trim(payload?.type).toLowerCase();
-  const addresstype = trim(payload?.addresstype).toLowerCase();
-  const name = trim(payload?.name)
-    || trim(payload?.namedetails?.name)
-    || trim(payload?.display_name).split(',')[0].trim();
-
-  if (!name) {
-    return null;
-  }
-
-  const looksWaterish = [category, type, addresstype].some((value) => [
-    'waterway', 'natural', 'river', 'stream', 'brook', 'canal', 'lake', 'reservoir', 'pond', 'bay', 'strait', 'harbour', 'harbor', 'wetland', 'water'
-  ].includes(value));
-
-  if (!looksWaterish) {
-    return null;
-  }
-
-  return {
-    name,
-    distanceMeters: 0,
-    kind: classifyWaterFeature({
-      waterway: ['river', 'stream', 'brook', 'canal'].includes(type) ? type : '',
-      natural: type === 'water' ? 'water' : category === 'natural' ? type : '',
-      water: ['lake', 'reservoir', 'pond', 'bay', 'strait', 'harbour', 'harbor', 'wetland'].includes(type) ? type : '',
-    }),
-  };
+out geom tags;`;
 }
 
 function pickBestWaterFeature(elements, lat, lng) {
@@ -548,7 +469,7 @@ function pickBestWaterFeature(elements, lat, lng) {
   }
 
   const best = ranked[0];
-  if (best.distanceMeters > 1600) {
+  if (best.distanceMeters > 650) {
     return null;
   }
 
@@ -578,14 +499,14 @@ function scoreWaterFeature(element, lat, lng) {
 
   const typeWeight = {
     river: 0,
-    stream: 15,
-    lake: 40,
-    pond: 65,
-    bay: 55,
-    wetland: 160,
-    harbor: 110,
-    generic: 135,
-  }[kind] ?? 135;
+    stream: 25,
+    lake: 50,
+    pond: 70,
+    bay: 60,
+    wetland: 140,
+    harbor: 100,
+    generic: 120,
+  }[kind] ?? 120;
 
   return {
     name,
