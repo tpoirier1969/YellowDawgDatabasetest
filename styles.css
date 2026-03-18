@@ -771,3 +771,22 @@ textarea:focus {
     width: auto;
   }
 }
+
+
+.field-hint {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.field-hint[data-tone="success"] {
+  color: #8ee7b5;
+}
+
+.field-hint[data-tone="warning"] {
+  color: #ffd18a;
+}
+
+.field-hint[data-tone="info"] {
+  color: #9ddcff;
+}
