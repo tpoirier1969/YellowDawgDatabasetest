@@ -1,14 +1,17 @@
 
-const STORAGE_KEY = 'fishMapTestV3.entries';
+const STORAGE_KEY = 'fishMapTestV4.entries';
 const DEFAULT_CENTER = [46.62, -87.67];
 const DEFAULT_ZOOM = 9;
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_RADIUS_METERS = 300;
 
 const state = {
   entries: loadEntries(),
   mapMarkers: new Map(),
   currentDraftMarker: null,
   addMode: false,
-  filters: { species: '', color: '', sky: '', retrieveSpeed: '' }
+  filters: { species: '', color: '', sky: '', retrieveSpeed: '' },
+  nearbyWaterChoices: []
 };
 
 const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
@@ -36,6 +39,10 @@ const statsGrid = document.getElementById('statsGrid');
 const dateInput = document.getElementById('date');
 const latInput = document.getElementById('lat');
 const lngInput = document.getElementById('lng');
+const waterNameInput = document.getElementById('waterName');
+const nearbyWaterWrap = document.getElementById('nearbyWaterWrap');
+const nearbyWaterSelect = document.getElementById('nearbyWaterSelect');
+const waterLookupStatus = document.getElementById('waterLookupStatus');
 const flyPatternSelect = document.getElementById('flyPatternSelect');
 const customPatternWrap = document.getElementById('customPatternWrap');
 const customFlyPattern = document.getElementById('customFlyPattern');
@@ -58,6 +65,14 @@ render();
 
 function wireEvents() {
   flyPatternSelect.addEventListener('change', onFlyChange);
+
+  nearbyWaterSelect.addEventListener('change', () => {
+    const value = nearbyWaterSelect.value;
+    if (!value) return;
+    waterNameInput.value = value;
+    waterLookupStatus.textContent = 'Nearby water selected from Overpass results.';
+  });
+
   addLogBtn.addEventListener('click', () => {
     state.addMode = true;
     openSheet(logSheet); closeSheet(reviewSheet); closeSheet(filterSheet);
@@ -88,10 +103,13 @@ function wireEvents() {
     setStatus('Filters reset.');
   });
 
-  map.on('click', event => {
+  map.on('click', async event => {
     if (!state.addMode) return;
     setDraftMarker(event.latlng.lat, event.latlng.lng);
     openSheet(logSheet);
+    closeSheet(reviewSheet);
+    closeSheet(filterSheet);
+    await detectNearbyWater(event.latlng.lat, event.latlng.lng);
     setStatus('Spot set. Fill in the log and save it.');
   });
 
@@ -125,6 +143,109 @@ function onFlyChange() {
   if (fly.primary?.length) flyColorPrimary.value = fly.primary[0];
   if (fly.secondary?.length) flyColorSecondary.value = fly.secondary[0];
   flyHelper.textContent = `${fly.notes}. Suggested colors: ${[...fly.primary, ...fly.secondary].join(', ')}.`;
+}
+
+async function detectNearbyWater(lat, lng) {
+  waterLookupStatus.textContent = 'Checking Overpass for nearby rivers and lakes...';
+  nearbyWaterWrap.classList.add('hidden');
+  nearbyWaterSelect.innerHTML = '<option value="">Choose one</option>';
+  state.nearbyWaterChoices = [];
+
+  const query = `
+    [out:json][timeout:20];
+    (
+      way["waterway"~"river|stream|canal|ditch"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      relation["waterway"~"river|stream|canal|ditch"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      way["natural"="water"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      relation["natural"="water"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      way["water"~"lake|pond|reservoir"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      relation["water"~"lake|pond|reservoir"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+    );
+    out tags center;
+  `;
+
+  try {
+    const response = await fetch(OVERPASS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: query
+    });
+    if (!response.ok) throw new Error(`Overpass returned ${response.status}`);
+    const data = await response.json();
+    const candidates = normalizeWaterCandidates(data.elements || [], lat, lng);
+
+    if (!candidates.length) {
+      waterLookupStatus.textContent = 'Overpass did not find a named nearby water body. You can type the water name manually.';
+      return;
+    }
+
+    state.nearbyWaterChoices = candidates;
+    if (candidates.length === 1) {
+      waterNameInput.value = candidates[0].name;
+      waterLookupStatus.textContent = `Overpass matched: ${candidates[0].name}.`;
+      return;
+    }
+
+    nearbyWaterWrap.classList.remove('hidden');
+    candidates.forEach(candidate => {
+      const opt = document.createElement('option');
+      opt.value = candidate.name;
+      opt.textContent = `${candidate.name} · ${candidate.featureLabel} · ${Math.round(candidate.distance)}m`;
+      nearbyWaterSelect.appendChild(opt);
+    });
+
+    waterNameInput.value = candidates[0].name;
+    nearbyWaterSelect.value = candidates[0].name;
+    waterLookupStatus.textContent = `Overpass found ${candidates.length} nearby water features. Pick the right one if needed.`;
+  } catch (error) {
+    waterLookupStatus.textContent = `Overpass lookup failed: ${error.message}. You can still type the water name manually.`;
+  }
+}
+
+function normalizeWaterCandidates(elements, lat, lng) {
+  const dedupe = new Map();
+
+  for (const el of elements) {
+    const tags = el.tags || {};
+    const name = (tags.name || '').trim();
+    if (!name) continue;
+
+    const centerLat = el.center?.lat ?? el.lat;
+    const centerLng = el.center?.lon ?? el.lon;
+    if (typeof centerLat !== 'number' || typeof centerLng !== 'number') continue;
+
+    const featureLabel = classifyFeature(tags);
+    const distance = haversineMeters(lat, lng, centerLat, centerLng);
+    const key = `${name.toLowerCase()}|${featureLabel.toLowerCase()}`;
+
+    if (!dedupe.has(key) || dedupe.get(key).distance > distance) {
+      dedupe.set(key, { name, featureLabel, distance, centerLat, centerLng });
+    }
+  }
+
+  return [...dedupe.values()].sort((a, b) => a.distance - b.distance).slice(0, 8);
+}
+
+function classifyFeature(tags) {
+  if (tags.waterway) return capitalize(tags.waterway);
+  if (tags.water) return capitalize(tags.water);
+  if (tags.natural === 'water') return 'Water';
+  return 'Water';
+}
+
+function capitalize(value) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+}
+
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
 }
 
 function onSubmit(event) {
@@ -300,6 +421,10 @@ function setDraftMarker(lat, lng) {
 function clearDraftMarker() {
   latInput.value = '';
   lngInput.value = '';
+  waterNameInput.value = '';
+  nearbyWaterSelect.innerHTML = '<option value="">Choose one</option>';
+  nearbyWaterWrap.classList.add('hidden');
+  waterLookupStatus.textContent = 'Tap the map to set a spot. Nearby water lookup will run automatically.';
   if (state.currentDraftMarker) {
     map.removeLayer(state.currentDraftMarker);
     state.currentDraftMarker = null;
@@ -323,7 +448,7 @@ function setStatus(message) {
   statusBadge.textContent = message;
   statusBadge.classList.remove('hidden');
   clearTimeout(setStatus._timer);
-  setStatus._timer = setTimeout(() => statusBadge.classList.add('hidden'), 2400);
+  setStatus._timer = setTimeout(() => statusBadge.classList.add('hidden'), 2600);
 }
 
 function persistEntries() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.entries)); }
