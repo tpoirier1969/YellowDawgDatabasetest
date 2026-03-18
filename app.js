@@ -1,19 +1,24 @@
-const STORAGE_KEY = 'fishing-log-map-logs-v1';
+const APP_VERSION = '2026.03.18b';
+const STORAGE_KEY = 'yellowdog-fishing-log-v1';
 
 const state = {
   map: null,
-  logs: [],
   markerLayer: null,
+  logs: [],
+  markersById: new Map(),
   isPlacing: false,
   pendingLatLng: null,
   pendingMarker: null,
   wasRepicking: false,
-  markersById: new Map(),
 };
 
 const els = {
   addLogBtn: document.getElementById('addLogBtn'),
+  addLogBtnHud: document.getElementById('addLogBtnHud'),
   fitLogsBtn: document.getElementById('fitLogsBtn'),
+  fitLogsBtnHud: document.getElementById('fitLogsBtnHud'),
+  versionBadgeTop: document.getElementById('versionBadgeTop'),
+  versionBadgeMap: document.getElementById('versionBadgeMap'),
   placementPrompt: document.getElementById('placementPrompt'),
   placementPromptText: document.getElementById('placementPromptText'),
   cancelPlacementBtn: document.getElementById('cancelPlacementBtn'),
@@ -31,11 +36,21 @@ const els = {
 };
 
 function init() {
+  setVersionBadges();
   initMap();
   loadLogs();
   renderLogs();
   wireEvents();
   setDefaultFormValues();
+}
+
+function setVersionBadges() {
+  if (els.versionBadgeTop) {
+    els.versionBadgeTop.textContent = `v${APP_VERSION}`;
+  }
+  if (els.versionBadgeMap) {
+    els.versionBadgeMap.textContent = `v${APP_VERSION}`;
+  }
 }
 
 function initMap() {
@@ -50,13 +65,22 @@ function initMap() {
   }).addTo(state.map);
 
   state.markerLayer = L.layerGroup().addTo(state.map);
-
   state.map.on('click', onMapClick);
 }
 
 function wireEvents() {
-  els.addLogBtn.addEventListener('click', startPlacementMode);
-  els.fitLogsBtn.addEventListener('click', fitAllLogs);
+  [els.addLogBtn, els.addLogBtnHud].forEach((button) => {
+    if (button) {
+      button.addEventListener('click', startPlacementMode);
+    }
+  });
+
+  [els.fitLogsBtn, els.fitLogsBtnHud].forEach((button) => {
+    if (button) {
+      button.addEventListener('click', fitAllLogs);
+    }
+  });
+
   els.cancelPlacementBtn.addEventListener('click', cancelPlacementMode);
   els.closeFormBtn.addEventListener('click', cancelForm);
   els.cancelFormBtn.addEventListener('click', cancelForm);
@@ -64,20 +88,23 @@ function wireEvents() {
   els.logForm.addEventListener('submit', onSubmitLogForm);
 
   els.formModal.addEventListener('click', (event) => {
-    if (event.target && event.target.dataset && event.target.dataset.closeModal === 'true') {
+    if (event.target?.dataset?.closeModal === 'true') {
       cancelForm();
     }
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      if (!els.formModal.classList.contains('hidden')) {
-        cancelForm();
-        return;
-      }
-      if (state.isPlacing) {
-        cancelPlacementMode();
-      }
+    if (event.key !== 'Escape') {
+      return;
+    }
+
+    if (!els.formModal.classList.contains('hidden')) {
+      cancelForm();
+      return;
+    }
+
+    if (state.isPlacing) {
+      cancelPlacementMode();
     }
   });
 }
@@ -104,8 +131,7 @@ function onMapClick(event) {
     return;
   }
 
-  const { lat, lng } = event.latlng;
-  state.pendingLatLng = { lat, lng };
+  state.pendingLatLng = { lat: event.latlng.lat, lng: event.latlng.lng };
   placePendingMarker(event.latlng);
   cancelPlacementMode();
   openForm();
@@ -114,14 +140,17 @@ function onMapClick(event) {
 function placePendingMarker(latlng) {
   removePendingMarker();
   state.pendingMarker = L.marker(latlng, { draggable: false, opacity: 0.95 }).addTo(state.map);
-  state.pendingMarker.bindPopup('<div class="popup-title">New log spot</div><div class="popup-line">Fill out the form to save it.</div>');
+  state.pendingMarker.bindPopup(
+    '<div class="popup-title">New log spot</div><div class="popup-line">Fill out the form to save it.</div>'
+  );
 }
 
 function removePendingMarker() {
-  if (state.pendingMarker) {
-    state.map.removeLayer(state.pendingMarker);
-    state.pendingMarker = null;
+  if (!state.pendingMarker) {
+    return;
   }
+  state.map.removeLayer(state.pendingMarker);
+  state.pendingMarker = null;
 }
 
 function openForm() {
@@ -136,11 +165,10 @@ function openForm() {
     : 'Spot locked. Now add the details.';
   els.formModal.classList.remove('hidden');
   els.formModal.setAttribute('aria-hidden', 'false');
+
   requestAnimationFrame(() => {
     const firstInput = els.logForm.querySelector('input[name="date"]');
-    if (firstInput) {
-      firstInput.focus();
-    }
+    firstInput?.focus();
   });
 }
 
@@ -175,7 +203,7 @@ function onSubmitLogForm(event) {
 
   const formData = new FormData(els.logForm);
   const log = {
-    id: crypto.randomUUID(),
+    id: buildId(),
     createdAt: new Date().toISOString(),
     lat: state.pendingLatLng.lat,
     lng: state.pendingLatLng.lng,
@@ -202,7 +230,14 @@ function onSubmitLogForm(event) {
   state.pendingLatLng = null;
   state.wasRepicking = false;
   flyToLog(log.id);
-  showToast('Log saved. Much less stupid now.');
+  showToast('Log saved.');
+}
+
+function buildId() {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+  return `log-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function addSavedMarker(log) {
@@ -216,12 +251,11 @@ function buildPopupHtml(log) {
     `<div class="popup-title">${escapeHtml(log.species || 'Fishing log')}</div>`,
     log.waterbody ? `<div class="popup-line"><strong>Water:</strong> ${escapeHtml(log.waterbody)}</div>` : '',
     log.date ? `<div class="popup-line"><strong>Date:</strong> ${escapeHtml(formatDisplayDate(log.date, log.time))}</div>` : '',
-    log.flyLure ? `<div class="popup-line"><strong>Fly / Lure:</strong> ${escapeHtml(log.flyLure)}${log.color ? ' (' + escapeHtml(log.color) + ')' : ''}</div>` : '',
+    log.flyLure ? `<div class="popup-line"><strong>Fly / Lure:</strong> ${escapeHtml(log.flyLure)}${log.color ? ` (${escapeHtml(log.color)})` : ''}</div>` : '',
     log.retrieveSpeed ? `<div class="popup-line"><strong>Retrieve:</strong> ${escapeHtml(log.retrieveSpeed)}</div>` : '',
     log.result ? `<div class="popup-line"><strong>Result:</strong> ${escapeHtml(log.result)}</div>` : '',
     log.notes ? `<div class="popup-line">${escapeHtml(log.notes)}</div>` : '',
   ];
-
   return lines.filter(Boolean).join('');
 }
 
@@ -235,8 +269,8 @@ function renderLogs() {
     card.className = 'log-card';
     card.innerHTML = `
       <h3>${escapeHtml(log.species || 'Fishing log')}</h3>
-      <div class="log-meta">${escapeHtml(formatDisplayDate(log.date, log.time))}${log.waterbody ? ' · ' + escapeHtml(log.waterbody) : ''}</div>
-      <div class="log-meta">${log.flyLure ? escapeHtml(log.flyLure) : 'No lure/fly entered'}${log.color ? ' · ' + escapeHtml(log.color) : ''}${log.retrieveSpeed ? ' · ' + escapeHtml(log.retrieveSpeed) : ''}</div>
+      <div class="log-meta">${escapeHtml(formatDisplayDate(log.date, log.time))}${log.waterbody ? ` · ${escapeHtml(log.waterbody)}` : ''}</div>
+      <div class="log-meta">${log.flyLure ? escapeHtml(log.flyLure) : 'No lure/fly entered'}${log.color ? ` · ${escapeHtml(log.color)}` : ''}${log.retrieveSpeed ? ` · ${escapeHtml(log.retrieveSpeed)}` : ''}</div>
       ${log.notes ? `<div class="log-notes">${escapeHtml(log.notes)}</div>` : ''}
       <div class="log-actions">
         <button class="button" type="button" data-action="fly-to" data-log-id="${log.id}">Go to Spot</button>
@@ -258,15 +292,11 @@ function renderLogs() {
 function flyToLog(logId) {
   const log = state.logs.find((item) => item.id === logId);
   const marker = state.markersById.get(logId);
-
   if (!log) {
     return;
   }
 
-  state.map.flyTo([log.lat, log.lng], Math.max(state.map.getZoom(), 13), {
-    duration: 0.65,
-  });
-
+  state.map.flyTo([log.lat, log.lng], Math.max(state.map.getZoom(), 13), { duration: 0.65 });
   if (marker) {
     setTimeout(() => marker.openPopup(), 250);
   }
@@ -283,7 +313,7 @@ function deleteLog(logId) {
   }
 
   renderLogs();
-  showToast('Log deleted. Fish remain unbothered.');
+  showToast('Log deleted.');
 }
 
 function fitAllLogs() {
@@ -320,15 +350,13 @@ function resetForm() {
 
 function setDefaultFormValues() {
   const now = new Date();
-  const dateValue = now.toISOString().slice(0, 10);
-  const timeValue = now.toTimeString().slice(0, 5);
   const dateInput = els.logForm.querySelector('input[name="date"]');
   const timeInput = els.logForm.querySelector('input[name="time"]');
   if (dateInput) {
-    dateInput.value = dateValue;
+    dateInput.value = now.toISOString().slice(0, 10);
   }
   if (timeInput) {
-    timeInput.value = timeValue;
+    timeInput.value = now.toTimeString().slice(0, 5);
   }
 }
 
@@ -345,11 +373,7 @@ function formatDisplayDate(date, time) {
   if (!date) {
     return 'Undated';
   }
-  const pieces = [date];
-  if (time) {
-    pieces.push(time);
-  }
-  return pieces.join(' at ');
+  return time ? `${date} at ${time}` : date;
 }
 
 function trim(value) {
