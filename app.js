@@ -1,4 +1,4 @@
-const APP_VERSION='v10.3';
+const APP_VERSION='v10.4';
 const STORAGE_KEY='fishMapTestV10.entries';
 const OVERPASS_URL='https://overpass-api.de/api/interpreter';
 const OVERPASS_RADIUS_METERS=1200;
@@ -77,20 +77,23 @@ function cancelAddMode(message=''){
 
 function beginAddLog(){
   cancelAddMode();
-  openSheet($('logSheet'));
   closeSheet($('reviewSheet'));
   closeSheet($('filterSheet'));
   if(state.currentDraftMarker){
+    openSheet($('logSheet'));
     const ll=state.currentDraftMarker.getLatLng();
     updateLocationSummary(ll.lat, ll.lng, state.currentDraftMeta.accuracy, state.currentDraftMeta.source);
     $('waterLookupStatus').textContent='Spot already set. You can use your location again, drag the marker, or pick a new spot on the map.';
     setStatus('Log opened with your current spot.', 2600);
     return;
   }
+  closeSheet($('logSheet'));
   if(supportsGeolocation()){
-    $('waterLookupStatus').textContent='Trying your device location... if the browser drags its feet, use Pick on Map.';
-    useCurrentLocation({auto:true});
+    $('waterLookupStatus').textContent='Getting your device location before opening the log...';
+    setStatus('Getting your location...', 2600);
+    useCurrentLocation({auto:true, confirmBeforeOpen:true});
   }else{
+    openSheet($('logSheet'));
     $('waterLookupStatus').textContent='This browser does not support device location here. Use Pick on Map.';
     setStatus('Use Pick on Map to set the spot.', 3200);
   }
@@ -158,9 +161,10 @@ function updateDraftMarkerPopup(){
   state.currentDraftMarker.bindPopup(bits.join(' · '));
 }
 
-async function useCurrentLocation({auto=false}={}){
+async function useCurrentLocation({auto=false, confirmBeforeOpen=false}={}){
   if(!supportsGeolocation()){
     $('waterLookupStatus').textContent='This browser does not support device location here. Use Pick on Map.';
+    if(auto && confirmBeforeOpen) openSheet($('logSheet'));
     if(!auto) setStatus('No device location available in this browser.', 3200);
     return;
   }
@@ -176,8 +180,28 @@ async function useCurrentLocation({auto=false}={}){
     const {latitude, longitude, accuracy}=position.coords;
     setDraftMarker(latitude, longitude, {source:'device', accuracy, recenter:true});
     map.setView([latitude, longitude], Math.max(map.getZoom(), DEFAULT_LOG_ZOOM));
-    $('waterLookupStatus').textContent=`Using your device location${Number.isFinite(accuracy) ? ` (±${Math.round(accuracy)} m)` : ''}. Drag the marker or use Pick on Map if you need to tweak it.`;
     setLocationControlsDisabled(false);
+
+    if(confirmBeforeOpen){
+      const accuracyText=Number.isFinite(accuracy) ? ` (±${Math.round(accuracy)} m)` : '';
+      const useSpot=window.confirm(`Use your current location${accuracyText}?`);
+      if(!useSpot){
+        clearDraftMarker();
+        beginPickOnMap();
+        $('waterLookupStatus').textContent='Location not confirmed. Tap the map to choose the spot instead.';
+        setStatus('Tap the map to choose your spot.', 3600);
+        return;
+      }
+      openSheet($('logSheet'));
+      closeSheet($('reviewSheet'));
+      closeSheet($('filterSheet'));
+      $('waterLookupStatus').textContent=`Using your device location${accuracyText}. Checking nearby water...`;
+      await detectNearbyWater(latitude, longitude);
+      setStatus('Location confirmed. Fill out the log and save it.', 3600);
+      return;
+    }
+
+    $('waterLookupStatus').textContent=`Using your device location${Number.isFinite(accuracy) ? ` (±${Math.round(accuracy)} m)` : ''}. Drag the marker or use Pick on Map if you need to tweak it.`;
     await detectNearbyWater(latitude, longitude);
     setStatus('Device location set.', 3200);
   }, error=>{
@@ -188,6 +212,11 @@ async function useCurrentLocation({auto=false}={}){
     const message=getGeoErrorMessage(error);
     $('waterLookupStatus').textContent=`Could not get device location (${message}). Use Pick on Map instead.`;
     setLocationControlsDisabled(false);
+    if(auto && confirmBeforeOpen){
+      openSheet($('logSheet'));
+      setStatus(`Location failed: ${message}. Pick a spot on the map.`, 4200);
+      return;
+    }
     if(!auto) setStatus(`Location failed: ${message}.`, 3600);
   }, {
     enableHighAccuracy:true,
