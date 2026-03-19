@@ -8,6 +8,67 @@ const CURRENT_ANGLER=localStorage.getItem('fishMap.currentAngler')||'Tod';
 const FLY_TYPES=['Dry','Nymph','Streamer','Emerger','Wet Fly','Terrestrial','Other'];
 const LURE_TYPES=['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'];
 const LIVE_BAIT_TYPES=['Minnow','Crawler','Worm','Spawn','Waxworm / Wiggler','Leech','Grasshopper','Other'];
+const BAIT_NAME_REFERENCE={
+  'Lure':[
+    {subtype:'Spoon',name:'Dardevle',aliases:['Daredevle','Dardevle Spoon'],notes:'Classic wobbling spoon',colors:{main:'Red',additional:'White'}},
+    {subtype:'Spoon',name:'Swedish Pimple',notes:'Compact jigging spoon',colors:{main:'Silver',additional:''}},
+    {subtype:'Spoon',name:'Silver Doctor',notes:'Classic spoon pattern',colors:{main:'Silver',additional:'Blue'}},
+    {subtype:'Spoon',name:'Little Cleo',notes:'Wide wobble spoon',colors:{main:'Silver',additional:'Blue'}},
+    {subtype:'Spoon',name:'Kastmaster',notes:'Heavy casting spoon',colors:{main:'Silver',additional:''}},
+    {subtype:'Spoon',name:'Johnson Silver Minnow',notes:'Weedless spoon',colors:{main:'Silver',additional:''}},
+    {subtype:'Spoon',name:'Five of Diamonds',notes:'Classic red and white spoon',colors:{main:'Red',additional:'White'}},
+    {subtype:'Spinner',name:'Mepps Aglia',aliases:['Mepps Spinner'],notes:'Classic inline spinner',colors:{main:'Silver',additional:''}},
+    {subtype:'Spinner',name:'Mepps Black Fury',notes:'Black inline spinner with dots',colors:{main:'Black',additional:'Yellow'}},
+    {subtype:'Spinner',name:'Blue Fox Vibrax',notes:'Bell-body spinner',colors:{main:'Silver',additional:''}},
+    {subtype:'Spinner',name:'Panther Martin',notes:'Inline spinner with shaft-through blade',colors:{main:'Silver',additional:'Yellow'}},
+    {subtype:'Spinner',name:'Rooster Tail',notes:'Dressed inline spinner',colors:{main:'White',additional:'Silver'}},
+    {subtype:'Plug / Crankbait',name:'Rapala Original Floater',aliases:['Rapala'],notes:'Classic minnow plug',colors:{main:'Silver',additional:'Black'}},
+    {subtype:'Plug / Crankbait',name:'Rapala Countdown',notes:'Sinking minnow plug',colors:{main:'Silver',additional:'Black'}},
+    {subtype:'Plug / Crankbait',name:'Rapala Shad Rap',notes:'Balsa crankbait',colors:{main:'Silver',additional:'Black'}},
+    {subtype:'Plug / Crankbait',name:'FlatFish',aliases:['Flatfish'],notes:'Wide wobble plug',colors:{main:'Silver',additional:'Chartreuse'}},
+    {subtype:'Plug / Crankbait',name:'Lazy Ike',notes:'Hunting-action plug',colors:{main:'Silver',additional:'Red'}},
+    {subtype:'Plug / Crankbait',name:'Hot-N-Tot',notes:'Diving plug',colors:{main:'Silver',additional:'Black'}},
+    {subtype:'Jerkbait',name:'Rapala Husky Jerk',notes:'Suspending jerkbait',colors:{main:'Silver',additional:'Black'}},
+    {subtype:'Jerkbait',name:'Rapala X-Rap',notes:'Slash-style jerkbait',colors:{main:'Silver',additional:'Blue'}},
+    {subtype:'Jerkbait',name:'Smithwick Rogue',notes:'Classic suspending jerkbait',colors:{main:'Silver',additional:'Black'}},
+    {subtype:'Soft Plastic',name:'Twister Tail Grub',notes:'Curly-tail plastic',colors:{main:'White',additional:''}},
+    {subtype:'Soft Plastic',name:'Tube Jig',notes:'Tube-style soft plastic',colors:{main:'Green',additional:'Copper'}},
+    {subtype:'Soft Plastic',name:'Fluke',notes:'Soft jerkbait',colors:{main:'Pearl',additional:''}},
+    {subtype:'Jig',name:'Marabou Jig',notes:'Feathered jig',colors:{main:'Black',additional:''}},
+    {subtype:'Jig',name:'Bucktail Jig',notes:'Hair jig',colors:{main:'White',additional:''}},
+    {subtype:'Jig',name:'Ball Head Jig',notes:'Plain leadhead jig',colors:{main:'White',additional:''}},
+    {subtype:'Swimbait',name:'Paddle Tail Swimbait',notes:'Boot-tail swimbait',colors:{main:'Silver',additional:'Pearl'}},
+    {subtype:'Swimbait',name:'Keitech Swing Impact',notes:'Soft swimbait',colors:{main:'Silver',additional:'Green'}},
+    {subtype:'Topwater',name:'Hula Popper',notes:'Classic popper',colors:{main:'White',additional:'Red'}},
+    {subtype:'Topwater',name:'Jitterbug',notes:'Surface crawler',colors:{main:'Black',additional:''}},
+    {subtype:'Topwater',name:'Zara Spook',notes:'Walk-the-dog topwater',colors:{main:'White',additional:''}}
+  ],
+  'Live Bait':[
+    {subtype:'Minnow',name:'Fathead Minnow',aliases:['Fathead'],notes:'Common all-around live minnow',colors:{main:'Brown',additional:'Silver'}},
+    {subtype:'Minnow',name:'Emerald Shiner',aliases:['Shiner'],notes:'Bright baitfish minnow',colors:{main:'Silver',additional:'Green'}},
+    {subtype:'Minnow',name:'Golden Shiner',notes:'Larger gold-toned shiner',colors:{main:'Gold',additional:'Silver'}},
+    {subtype:'Minnow',name:'Rosy Red Minnow',notes:'Pale hatchery fathead',colors:{main:'Pink',additional:'Cream'}},
+    {subtype:'Minnow',name:'Creek Chub',aliases:['Chub'],notes:'Tough larger minnow',colors:{main:'Brown',additional:'Olive'}},
+    {subtype:'Minnow',name:'Sucker Minnow',aliases:['Sucker'],notes:'Big live bait for predators',colors:{main:'Brown',additional:'Silver'}},
+    {subtype:'Crawler',name:'Nightcrawler',aliases:['Crawler'],notes:'Standard full crawler',colors:{main:'Brown',additional:''}},
+    {subtype:'Crawler',name:'Half Crawler',notes:'Shortened crawler section',colors:{main:'Brown',additional:''}},
+    {subtype:'Crawler',name:'Dyed Crawler',notes:'Color-treated crawler',colors:{main:'Red',additional:'Pink'}},
+    {subtype:'Worm',name:'Red Worm',aliases:['Redworm'],notes:'Small lively worm',colors:{main:'Red',additional:'Brown'}},
+    {subtype:'Worm',name:'Garden Worm',aliases:['Earthworm'],notes:'Basic natural worm',colors:{main:'Brown',additional:''}},
+    {subtype:'Worm',name:'Leaf Worm',notes:'Thin natural worm',colors:{main:'Brown',additional:'Olive'}},
+    {subtype:'Spawn',name:'Spawn Sac',aliases:['Spawn Bag'],notes:'Egg sack',colors:{main:'Pink',additional:'Orange'}},
+    {subtype:'Spawn',name:'Skein',notes:'Loose egg cluster',colors:{main:'Orange',additional:'Pink'}},
+    {subtype:'Waxworm / Wiggler',name:'Waxworm',notes:'Soft pale grub',colors:{main:'Cream',additional:'Brown'}},
+    {subtype:'Waxworm / Wiggler',name:'Spikes',aliases:['Spike'],notes:'Small maggots',colors:{main:'Cream',additional:'White'}},
+    {subtype:'Waxworm / Wiggler',name:'Mousie',notes:'Bee moth larvae',colors:{main:'Cream',additional:'Brown'}},
+    {subtype:'Waxworm / Wiggler',name:'Wigglers',aliases:['Wiggler'],notes:'Midge larvae',colors:{main:'Red',additional:''}},
+    {subtype:'Leech',name:'Jumbo Leech',aliases:['Leech'],notes:'Large ribbon leech',colors:{main:'Black',additional:''}},
+    {subtype:'Leech',name:'Brown Leech',notes:'Natural leech',colors:{main:'Brown',additional:''}},
+    {subtype:'Grasshopper',name:'Grasshopper',aliases:['Hopper'],notes:'Natural hopper',colors:{main:'Green',additional:'Yellow'}},
+    {subtype:'Grasshopper',name:'Cricket',notes:'Dark hopper-style bait',colors:{main:'Black',additional:'Brown'}},
+    {subtype:'Other',name:'Crayfish',aliases:['Crawfish'],notes:'Live crayfish',colors:{main:'Brown',additional:'Olive'}}
+  ]
+};
 
 const state={entries:loadEntries(),markerCluster:null,currentDraftMarker:null,addMode:false,filters:{dateFrom:'',dateTo:'',species:'',color:'',sky:'',retrieveSpeed:''}};
 const $=id=>document.getElementById(id);
@@ -81,6 +142,31 @@ const BAIT_COLOR_DEFAULTS={
 function getFlyReference(){
   return Array.isArray(window.FLY_REFERENCE) ? window.FLY_REFERENCE : [];
 }
+function normalizeName(value=''){
+  return value.trim().toLowerCase();
+}
+function getNamedBaitReference(type=''){
+  return Array.isArray(BAIT_NAME_REFERENCE[type]) ? BAIT_NAME_REFERENCE[type] : [];
+}
+function namedBaitTerms(item){
+  return [item.name, ...(item.aliases||[])].map(term=>normalizeName(term)).filter(Boolean);
+}
+function findExactNamedBait(type, name, subtype=''){
+  const normalized=normalizeName(name);
+  if(!normalized) return null;
+  return getNamedBaitReference(type).find(item=>{
+    const subtypeOk=!subtype || item.subtype===subtype;
+    return subtypeOk && namedBaitTerms(item).includes(normalized);
+  }) || null;
+}
+function getNamedBaitMatches(type, query='', subtype=''){
+  const normalized=normalizeName(query);
+  return getNamedBaitReference(type).filter(item=>{
+    const subtypeOk=!subtype || item.subtype===subtype;
+    const queryOk=!normalized || namedBaitTerms(item).some(term=>term.includes(normalized));
+    return subtypeOk && queryOk;
+  });
+}
 function findExactFly(name, subtype=''){
   const normalized=(name||'').trim().toLowerCase();
   if(!normalized) return null;
@@ -119,10 +205,21 @@ function applySubtypeColorDefaults(){
   $('mainColor').value=defaults.main || '';
   $('additionalColor').value=defaults.additional || '';
 }
+function applyNamedBait(item){
+  $('baitName').value=item.name;
+  if(item.subtype) $('baitSubtype').value=item.subtype;
+  if(item.colors){
+    $('mainColor').value=item.colors.main || $('mainColor').value;
+    $('additionalColor').value=item.colors.additional ?? $('additionalColor').value;
+  }
+  const colorBits=[item.colors?.main, item.colors?.additional].filter(Boolean).join(', ');
+  setBaitHelper([item.notes, colorBits ? `Common colors: ${colorBits}.` : ''].filter(Boolean).join(' '));
+}
 function applyBaitTypeUI(){
   const type=$('baitType').value;
   $('nameSuggestions').classList.add('hidden');
   $('baitName').value='';
+  $('baitName').required=type==='Fly' || type==='Lure' || type==='Live Bait';
   $('baitSize').innerHTML='<option value="">Choose one</option>';
   setBaitHelper('');
   if(type==='Fly'){
@@ -145,9 +242,11 @@ function applyBaitTypeUI(){
   } else if(type==='Live Bait'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
-    $('nameWrap').classList.add('hidden');
+    $('nameWrap').classList.remove('hidden');
     setOptions($('baitSubtype'), LIVE_BAIT_TYPES, 'Choose bait type');
     setLabelText($('subtypeWrap'), 'Bait Type');
+    setLabelText($('nameLabel'), 'Bait Name');
+    $('baitName').placeholder='Type live bait name...';
   } else {
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
@@ -169,6 +268,22 @@ function updateFlySuggestions(query){
     div.className='suggestion-item';
     div.innerHTML=`<span class="suggestion-name">${escapeHtml(item.name)}</span><span class="suggestion-meta">${escapeHtml(item.category)} · sizes ${(item.sizes||[]).join(', ')}</span>`;
     div.addEventListener('click',()=>{applyFly(item); $('nameSuggestions').classList.add('hidden');});
+    $('nameSuggestions').appendChild(div);
+  });
+  $('nameSuggestions').classList.remove('hidden');
+}
+function updateNamedBaitSuggestions(query){
+  const type=$('baitType').value;
+  if(type!=='Lure' && type!=='Live Bait') return;
+  const subtype=$('baitSubtype').value;
+  const matches=getNamedBaitMatches(type, query, subtype).slice(0,12);
+  $('nameSuggestions').innerHTML='';
+  if(!matches.length){$('nameSuggestions').classList.add('hidden'); return;}
+  matches.forEach(item=>{
+    const div=document.createElement('div');
+    div.className='suggestion-item';
+    div.innerHTML=`<span class="suggestion-name">${escapeHtml(item.name)}</span><span class="suggestion-meta">${escapeHtml(item.subtype)}${item.notes ? ' · ' + escapeHtml(item.notes) : ''}</span>`;
+    div.addEventListener('click',()=>{applyNamedBait(item); $('nameSuggestions').classList.add('hidden');});
     $('nameSuggestions').appendChild(div);
   });
   $('nameSuggestions').classList.remove('hidden');
@@ -231,7 +346,7 @@ function onSubmit(event){
   const raw=Object.fromEntries(new FormData($('logForm')).entries());
   let baitName='';
   if(raw.baitType==='Fly' || raw.baitType==='Lure') baitName=raw.baitName.trim();
-  if(raw.baitType==='Live Bait') baitName=raw.baitSubtype || '';
+  if(raw.baitType==='Live Bait') baitName=raw.baitName.trim() || raw.baitSubtype || '';
   if(!baitName) return alert('Enter the bait name that matches the bait type.');
   if(!state.currentDraftMarker) return alert('Tap the map first so the log gets a marker.');
   const ll=state.currentDraftMarker.getLatLng();
@@ -263,7 +378,8 @@ $('resetFiltersBtn').addEventListener('click',()=>{$('filterDateFrom').value='';
 $('baitType').addEventListener('change',applyBaitTypeUI);
 $('nearbyWaterSelect').addEventListener('change',()=>{if($('nearbyWaterSelect').value){$('waterName').value=$('nearbyWaterSelect').value;}});
 $('baitSubtype').addEventListener('change',()=>{
-  if($('baitType').value==='Fly'){
+  const type=$('baitType').value;
+  if(type==='Fly'){
     const exact=findExactFly($('baitName').value);
     if(exact && exact.category!==$('baitSubtype').value) $('baitName').value='';
     setBaitHelper('');
@@ -271,17 +387,37 @@ $('baitSubtype').addEventListener('change',()=>{
     updateFlySuggestions($('baitName').value.trim());
     return;
   }
+  if(type==='Lure' || type==='Live Bait'){
+    const exact=findExactNamedBait(type, $('baitName').value);
+    if(exact && exact.subtype!==$('baitSubtype').value) $('baitName').value='';
+    applySubtypeColorDefaults();
+    setBaitHelper('');
+    updateNamedBaitSuggestions($('baitName').value.trim());
+    return;
+  }
   applySubtypeColorDefaults();
 });
 $('baitName').addEventListener('input',()=>{
-  if($('baitType').value==='Fly'){
+  const type=$('baitType').value;
+  if(type==='Fly'){
     const query=$('baitName').value.trim();
     updateFlySuggestions(query);
     const exact=findExactFly(query, $('baitSubtype').value);
     if(exact) applyFly(exact); else {refreshFlySizeOptions(); setBaitHelper('');}
+    return;
+  }
+  if(type==='Lure' || type==='Live Bait'){
+    const query=$('baitName').value.trim();
+    updateNamedBaitSuggestions(query);
+    const exact=findExactNamedBait(type, query, $('baitSubtype').value);
+    if(exact) applyNamedBait(exact); else setBaitHelper('');
   }
 });
-$('baitName').addEventListener('focus',()=>{if($('baitType').value==='Fly'){refreshFlySizeOptions(); updateFlySuggestions($('baitName').value.trim());}});
+$('baitName').addEventListener('focus',()=>{
+  const type=$('baitType').value;
+  if(type==='Fly'){refreshFlySizeOptions(); updateFlySuggestions($('baitName').value.trim()); return;}
+  if(type==='Lure' || type==='Live Bait') updateNamedBaitSuggestions($('baitName').value.trim());
+});
 document.addEventListener('click',event=>{if(!$('nameSuggestions').contains(event.target) && event.target!==$('baitName')) $('nameSuggestions').classList.add('hidden');});
 map.on('click',async event=>{if(!state.addMode) return; state.addMode=false; syncAddLogButton(); setDraftMarker(event.latlng.lat,event.latlng.lng); openSheet($('logSheet')); closeSheet($('reviewSheet')); closeSheet($('filterSheet')); await detectNearbyWater(event.latlng.lat,event.latlng.lng); setStatus('Spot set. Fill out the log and save it.', 3600);});
 $('logForm').addEventListener('submit',onSubmit);
