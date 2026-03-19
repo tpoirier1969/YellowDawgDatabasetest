@@ -55,6 +55,70 @@ function setBaitHelper(message=''){
   helper.textContent=clean;
   helper.classList.toggle('hidden', !clean);
 }
+const BAIT_COLOR_DEFAULTS={
+  'Lure':{
+    'Spoon':{main:'Silver',additional:''},
+    'Plug / Crankbait':{main:'Silver',additional:''},
+    'Spinner':{main:'Silver',additional:''},
+    'Jerkbait':{main:'Silver',additional:''},
+    'Soft Plastic':{main:'Green',additional:''},
+    'Jig':{main:'White',additional:''},
+    'Swimbait':{main:'Silver',additional:''},
+    'Topwater':{main:'White',additional:''},
+    'Other':{main:'Silver',additional:''}
+  },
+  'Live Bait':{
+    'Minnow':{main:'Brown',additional:'Silver'},
+    'Crawler':{main:'Brown',additional:''},
+    'Worm':{main:'Brown',additional:''},
+    'Spawn':{main:'Pink',additional:'Orange'},
+    'Waxworm / Wiggler':{main:'Cream',additional:'Brown'},
+    'Leech':{main:'Black',additional:''},
+    'Grasshopper':{main:'Green',additional:'Yellow'},
+    'Other':{main:'Brown',additional:''}
+  }
+};
+function getFlyReference(){
+  return Array.isArray(window.FLY_REFERENCE) ? window.FLY_REFERENCE : [];
+}
+function findExactFly(name, subtype=''){
+  const normalized=(name||'').trim().toLowerCase();
+  if(!normalized) return null;
+  return getFlyReference().find(item=>item.name.toLowerCase()===normalized && (!subtype || item.category===subtype)) || null;
+}
+function getFlyMatches(query='', subtype=''){
+  const normalized=(query||'').trim().toLowerCase();
+  return getFlyReference().filter(item=>{
+    const subtypeOk=!subtype || item.category===subtype;
+    const queryOk=!normalized || item.name.toLowerCase().includes(normalized);
+    return subtypeOk && queryOk;
+  });
+}
+function refreshFlySizeOptions(){
+  if($('baitType').value!=='Fly'){
+    $('baitSize').innerHTML='<option value="">Choose one</option>';
+    return;
+  }
+  const subtype=$('baitSubtype').value;
+  const exact=findExactFly($('baitName').value, subtype);
+  let sizes=[];
+  if(exact){
+    sizes=exact.sizes||[];
+  }else{
+    const pool=subtype ? getFlyReference().filter(item=>item.category===subtype) : getFlyReference();
+    sizes=[...new Set(pool.flatMap(item=>item.sizes||[]))].sort((a,b)=>Number(a)-Number(b));
+  }
+  setOptions($('baitSize'), sizes, sizes.length ? 'Choose fly size' : 'No sizes loaded');
+}
+function applySubtypeColorDefaults(){
+  const type=$('baitType').value;
+  const subtype=$('baitSubtype').value;
+  if(type==='Fly' || !subtype) return;
+  const defaults=BAIT_COLOR_DEFAULTS[type]?.[subtype];
+  if(!defaults) return;
+  $('mainColor').value=defaults.main || '';
+  $('additionalColor').value=defaults.additional || '';
+}
 function applyBaitTypeUI(){
   const type=$('baitType').value;
   $('nameSuggestions').classList.add('hidden');
@@ -69,6 +133,7 @@ function applyBaitTypeUI(){
     setLabelText($('subtypeWrap'), 'Fly Type');
     setLabelText($('nameLabel'), 'Fly Pattern');
     $('baitName').placeholder='Start typing fly name...';
+    refreshFlySizeOptions();
   } else if(type==='Lure'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
@@ -95,18 +160,14 @@ function applyBaitTypeUI(){
 }
 function updateFlySuggestions(query){
   if($('baitType').value!=='Fly') return;
-  const normalized=query.toLowerCase(), subtype=$('baitSubtype').value;
-  const matches=(window.FLY_REFERENCE||[]).filter(item=>{
-    const subtypeOk=!subtype || item.category===subtype;
-    const queryOk=!normalized || item.name.toLowerCase().includes(normalized);
-    return subtypeOk && queryOk;
-  }).slice(0,8);
+  const subtype=$('baitSubtype').value;
+  const matches=getFlyMatches(query, subtype).slice(0,12);
   $('nameSuggestions').innerHTML='';
-  if(!matches.length || !query){$('nameSuggestions').classList.add('hidden'); return;}
+  if(!matches.length){$('nameSuggestions').classList.add('hidden'); return;}
   matches.forEach(item=>{
     const div=document.createElement('div');
     div.className='suggestion-item';
-    div.innerHTML=`<span class="suggestion-name">${escapeHtml(item.name)}</span><span class="suggestion-meta">${escapeHtml(item.category)} · sizes ${item.sizes.join(', ')}</span>`;
+    div.innerHTML=`<span class="suggestion-name">${escapeHtml(item.name)}</span><span class="suggestion-meta">${escapeHtml(item.category)} · sizes ${(item.sizes||[]).join(', ')}</span>`;
     div.addEventListener('click',()=>{applyFly(item); $('nameSuggestions').classList.add('hidden');});
     $('nameSuggestions').appendChild(div);
   });
@@ -117,8 +178,7 @@ function applyFly(item){
   $('baitSubtype').value=item.category || $('baitSubtype').value;
   if(item.primary?.length) $('mainColor').value=item.primary[0];
   if(item.secondary?.length) $('additionalColor').value=item.secondary[0];
-  $('baitSize').innerHTML='<option value="">Choose one</option>';
-  (item.sizes||[]).forEach(size=>{const o=document.createElement('option');o.value=String(size);o.textContent=String(size);$('baitSize').appendChild(o);});
+  refreshFlySizeOptions();
   setBaitHelper(`${item.notes}. Suggested colors: ${[...(item.primary||[]), ...(item.secondary||[])].join(', ')}.`);
 }
 async function detectNearbyWater(lat,lng){
@@ -202,9 +262,26 @@ $('resetFiltersBtn').addEventListener('click',()=>{$('filterDateFrom').value='';
 ['filterDateFrom','filterDateTo','filterSpecies','filterColor','filterSky','filterRetrieveSpeed'].forEach(id=>$(id).addEventListener('change',()=>{state.filters.dateFrom=$('filterDateFrom').value; state.filters.dateTo=$('filterDateTo').value; state.filters.species=$('filterSpecies').value; state.filters.color=$('filterColor').value; state.filters.sky=$('filterSky').value; state.filters.retrieveSpeed=$('filterRetrieveSpeed').value; render();}));
 $('baitType').addEventListener('change',applyBaitTypeUI);
 $('nearbyWaterSelect').addEventListener('change',()=>{if($('nearbyWaterSelect').value){$('waterName').value=$('nearbyWaterSelect').value;}});
-$('baitSubtype').addEventListener('change',()=>{if($('baitType').value==='Fly'){ setBaitHelper(''); updateFlySuggestions($('baitName').value.trim()); }});
-$('baitName').addEventListener('input',()=>{if($('baitType').value==='Fly'){updateFlySuggestions($('baitName').value.trim()); const exact=(window.FLY_REFERENCE||[]).find(item=>item.name.toLowerCase()===$('baitName').value.trim().toLowerCase()); if(exact) applyFly(exact); else setBaitHelper('');}});
-$('baitName').addEventListener('focus',()=>{if($('baitType').value==='Fly') updateFlySuggestions($('baitName').value.trim());});
+$('baitSubtype').addEventListener('change',()=>{
+  if($('baitType').value==='Fly'){
+    const exact=findExactFly($('baitName').value);
+    if(exact && exact.category!==$('baitSubtype').value) $('baitName').value='';
+    setBaitHelper('');
+    refreshFlySizeOptions();
+    updateFlySuggestions($('baitName').value.trim());
+    return;
+  }
+  applySubtypeColorDefaults();
+});
+$('baitName').addEventListener('input',()=>{
+  if($('baitType').value==='Fly'){
+    const query=$('baitName').value.trim();
+    updateFlySuggestions(query);
+    const exact=findExactFly(query, $('baitSubtype').value);
+    if(exact) applyFly(exact); else {refreshFlySizeOptions(); setBaitHelper('');}
+  }
+});
+$('baitName').addEventListener('focus',()=>{if($('baitType').value==='Fly'){refreshFlySizeOptions(); updateFlySuggestions($('baitName').value.trim());}});
 document.addEventListener('click',event=>{if(!$('nameSuggestions').contains(event.target) && event.target!==$('baitName')) $('nameSuggestions').classList.add('hidden');});
 map.on('click',async event=>{if(!state.addMode) return; state.addMode=false; syncAddLogButton(); setDraftMarker(event.latlng.lat,event.latlng.lng); openSheet($('logSheet')); closeSheet($('reviewSheet')); closeSheet($('filterSheet')); await detectNearbyWater(event.latlng.lat,event.latlng.lng); setStatus('Spot set. Fill out the log and save it.', 3600);});
 $('logForm').addEventListener('submit',onSubmit);

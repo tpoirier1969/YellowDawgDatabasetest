@@ -1,4 +1,4 @@
-Fish Map Test v10.1
+Fish Map Test v10.2
 
 What changed
 - after Bait Type, the next field now changes:
