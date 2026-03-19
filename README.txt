@@ -1,19 +1,10 @@
-Fish Map Test v8
-================
+Fish Map Test v10
 
-What changed in this batch
---------------------------
-- Bait Type moved before Fly Pattern
-- added section dividers and reordered form flow:
-  Location → Conditions → Bait → Fish
-- kept the type-ahead fly field from v7
-- kept Overpass large-water improvements from v7
-- kept desktop and phone on the same Add Log → click map → form opens workflow
-
-Files included
---------------
-- index.html
-- app.js
-- styles.css
-- fly-reference.js
-- README.txt
+What changed
+- after Bait Type, the next field now changes:
+  - Fly -> Fly Type
+  - Lure -> Lure Type
+  - Live Bait -> Bait Type
+- each path now has its own options list
+- fly-only typeahead stays only for flies
+- live bait no longer asks for a fly pattern
