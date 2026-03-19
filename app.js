@@ -1,4 +1,4 @@
-const APP_VERSION='v10.4';
+const APP_VERSION='v10.5';
 const STORAGE_KEY='fishMapTestV10.entries';
 const OVERPASS_URL='https://overpass-api.de/api/interpreter';
 const OVERPASS_RADIUS_METERS=1200;
@@ -304,41 +304,61 @@ function applySubtypeColorDefaults(){
 
 function applyBaitTypeUI(){
   const type=$('baitType').value;
+  const baitSubtype=$('baitSubtype');
+  const baitSize=$('baitSize');
+  const baitName=$('baitName');
   $('nameSuggestions').classList.add('hidden');
-  $('baitName').value='';
-  $('baitSize').innerHTML='<option value="">Choose one</option>';
+  baitName.value='';
+  baitSize.innerHTML='<option value="">Choose one</option>';
   setBaitHelper('');
+
+  baitSubtype.disabled=false;
+  baitSubtype.required=false;
+  baitSize.disabled=true;
+  baitSize.required=false;
+  baitName.disabled=false;
+  baitName.required=false;
+
   if(type==='Fly'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.remove('hidden');
     $('nameWrap').classList.remove('hidden');
-    setOptions($('baitSubtype'), FLY_TYPES, 'Choose fly type');
+    setOptions(baitSubtype, FLY_TYPES, 'Choose fly type');
     setLabelText($('subtypeWrap'), 'Fly Type');
     setLabelText($('nameLabel'), 'Fly Pattern');
-    $('baitName').placeholder='Start typing fly name...';
+    baitSubtype.required=true;
+    baitSize.disabled=false;
+    baitSize.required=true;
+    baitName.required=true;
+    baitName.placeholder='Start typing fly name...';
     refreshFlySizeOptions();
   } else if(type==='Lure'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.remove('hidden');
-    setOptions($('baitSubtype'), LURE_TYPES, 'Choose lure type');
+    setOptions(baitSubtype, LURE_TYPES, 'Choose lure type');
     setLabelText($('subtypeWrap'), 'Lure Type');
     setLabelText($('nameLabel'), 'Lure Name');
-    $('baitName').placeholder='Type lure name...';
+    baitSubtype.required=true;
+    baitName.required=true;
+    baitName.placeholder='Type lure name...';
   } else if(type==='Live Bait'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.add('hidden');
-    setOptions($('baitSubtype'), LIVE_BAIT_TYPES, 'Choose bait type');
+    setOptions(baitSubtype, LIVE_BAIT_TYPES, 'Choose bait type');
     setLabelText($('subtypeWrap'), 'Bait Type');
+    baitSubtype.required=true;
+    baitName.disabled=true;
   } else {
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.remove('hidden');
-    setOptions($('baitSubtype'), [], 'Choose one');
+    setOptions(baitSubtype, [], 'Choose one');
     setLabelText($('subtypeWrap'), 'Subtype');
     setLabelText($('nameLabel'), 'Name');
-    $('baitName').placeholder='Choose bait type first...';
+    baitName.placeholder='Choose bait type first...';
+    baitName.disabled=true;
   }
 }
 
@@ -544,7 +564,7 @@ function onSubmit(event){
   event.preventDefault();
   const raw=Object.fromEntries(new FormData($('logForm')).entries());
   let baitName='';
-  if(raw.baitType==='Fly' || raw.baitType==='Lure') baitName=raw.baitName.trim();
+  if(raw.baitType==='Fly' || raw.baitType==='Lure') baitName=(raw.baitName||'').trim();
   if(raw.baitType==='Live Bait') baitName=raw.baitSubtype || '';
   if(!baitName) return alert('Enter the bait name that matches the bait type.');
   if(!state.currentDraftMarker) return alert('Set the spot first with your location or by picking on the map.');
@@ -756,6 +776,14 @@ map.on('click',async event=>{
   await detectNearbyWater(event.latlng.lat,event.latlng.lng);
   setStatus('Spot set from map. Fill out the log and save it.', 3600);
 });
+$('logForm').addEventListener('invalid',event=>{
+  const target=event.target;
+  if(!(target instanceof HTMLElement)) return;
+  if(target.disabled) return;
+  const wrap=target.closest('label') || target;
+  wrap.scrollIntoView({behavior:'smooth', block:'center'});
+  setStatus('A required field is missing. Check the highlighted field.', 3200);
+}, true);
 $('logForm').addEventListener('submit',onSubmit);
 applyBaitTypeUI();
 syncAddLogButton();
