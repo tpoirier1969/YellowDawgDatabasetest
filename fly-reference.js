@@ -4,153 +4,199 @@ window.FLY_REFERENCE = [
     "category": "Dry",
     "primary": [
       "Gray",
-      "Dun"
-    ],
-    "secondary": [
       "White"
     ],
-    "notes": "Michigan staple attractor/mayfly match"
+    "secondary": [
+      "Dun"
+    ],
+    "notes": "All-around mayfly imitation",
+    "sizes": [
+      10,
+      12,
+      14,
+      16,
+      18
+    ]
   },
   {
     "name": "Adams",
     "category": "Dry",
     "primary": [
-      "Gray",
+      "Gray"
+    ],
+    "secondary": [
       "Dun"
+    ],
+    "notes": "Classic dry",
+    "sizes": [
+      10,
+      12,
+      14,
+      16,
+      18
+    ]
+  },
+  {
+    "name": "Royal Coachman",
+    "category": "Dry",
+    "primary": [
+      "Red",
+      "Peacock"
     ],
     "secondary": [
       "White"
     ],
-    "notes": "Classic Michigan mayfly/generalist dry"
+    "notes": "Attractor dry",
+    "sizes": [
+      10,
+      12,
+      14
+    ]
   },
   {
-    "name": "Blue Wing Olive Parachute",
+    "name": "Royal Coachman Streamer",
+    "category": "Streamer",
+    "primary": [
+      "Red",
+      "Peacock"
+    ],
+    "secondary": [
+      "White"
+    ],
+    "notes": "Flashy streamer",
+    "sizes": [
+      6,
+      8,
+      10
+    ]
+  },
+  {
+    "name": "Mickey Finn",
+    "category": "Streamer",
+    "primary": [
+      "Yellow"
+    ],
+    "secondary": [
+      "Red"
+    ],
+    "notes": "Aggressive attractor",
+    "sizes": [
+      6,
+      8,
+      10
+    ]
+  },
+  {
+    "name": "Poirier's Passion",
+    "category": "Streamer",
+    "primary": [
+      "Black",
+      "Purple"
+    ],
+    "secondary": [
+      "Flash"
+    ],
+    "notes": "Local confidence fly",
+    "sizes": [
+      4,
+      6,
+      8
+    ]
+  },
+  {
+    "name": "KH Special",
+    "category": "Dry",
+    "primary": [
+      "Yellow",
+      "Cream"
+    ],
+    "secondary": [
+      "Brown"
+    ],
+    "notes": "Midwest staple",
+    "sizes": [
+      10,
+      12,
+      14
+    ]
+  },
+  {
+    "name": "Blue Wing Olive",
     "category": "Dry",
     "primary": [
       "Olive"
     ],
     "secondary": [
-      "Gray",
-      "Dun"
+      "Gray"
     ],
-    "notes": "Baetis/BWO option"
+    "notes": "BWO hatch",
+    "sizes": [
+      16,
+      18,
+      20
+    ]
   },
   {
     "name": "Hendrickson",
     "category": "Dry",
     "primary": [
-      "Tan",
-      "Brown"
+      "Tan"
     ],
     "secondary": [
-      "Gray",
       "Pink"
     ],
-    "notes": "Spring hatch match"
+    "notes": "Spring hatch",
+    "sizes": [
+      12,
+      14
+    ]
   },
   {
-    "name": "Sulphur (Light Hendrickson)",
+    "name": "Hexagenia",
     "category": "Dry",
     "primary": [
-      "Yellow",
+      "Yellow"
+    ],
+    "secondary": [
+      "Cream"
+    ],
+    "notes": "Hex hatch",
+    "sizes": [
+      6,
+      8
+    ]
+  },
+  {
+    "name": "Elk Hair Caddis",
+    "category": "Dry",
+    "primary": [
       "Tan"
     ],
     "secondary": [
-      "Gray",
-      "Dun"
-    ],
-    "notes": "Late spring / early summer yellow bug"
-  },
-  {
-    "name": "Brown Drake",
-    "category": "Dry",
-    "primary": [
-      "Brown",
-      "Tan"
-    ],
-    "secondary": [
-      "Gray"
-    ],
-    "notes": "Early summer hatch match"
-  },
-  {
-    "name": "Hexagenia (Hex)",
-    "category": "Dry",
-    "primary": [
-      "Yellow",
-      "Cream"
-    ],
-    "secondary": [
-      "Brown",
-      "Olive"
-    ],
-    "notes": "Michigan Hex hatch match"
-  },
-  {
-    "name": "Elk Hair Caddis / Black Caddis",
-    "category": "Dry",
-    "primary": [
-      "Black",
-      "Tan",
-      "Olive"
-    ],
-    "secondary": [
-      "Brown",
-      "Cream"
-    ],
-    "notes": "Caddis coverage"
-  },
-  {
-    "name": "Bead Head Hare's Ear",
-    "category": "Nymph",
-    "primary": [
-      "Brown",
-      "Tan",
-      "Olive"
-    ],
-    "secondary": [
-      "Gold"
-    ],
-    "notes": "General nymph staple"
-  },
-  {
-    "name": "Bead Head Pheasant Tail",
-    "category": "Nymph",
-    "primary": [
       "Brown"
     ],
-    "secondary": [
-      "Copper",
-      "Gold"
-    ],
-    "notes": "Classic mayfly nymph"
+    "notes": "Caddis",
+    "sizes": [
+      12,
+      14,
+      16
+    ]
   },
   {
-    "name": "Prince Nymph",
-    "category": "Nymph",
+    "name": "Griffith\u2019s Gnat",
+    "category": "Dry",
     "primary": [
-      "Brown",
       "Black"
     ],
     "secondary": [
-      "White",
-      "Gold"
+      "Peacock"
     ],
-    "notes": "General attractor nymph"
-  },
-  {
-    "name": "Perdigon",
-    "category": "Nymph",
-    "primary": [
-      "Purple",
-      "Olive",
-      "Black"
-    ],
-    "secondary": [
-      "Silver",
-      "Gold"
-    ],
-    "notes": "Euro/prospecting nymph"
+    "notes": "Midge",
+    "sizes": [
+      18,
+      20,
+      22
+    ]
   },
   {
     "name": "Woolly Bugger",
@@ -158,41 +204,181 @@ window.FLY_REFERENCE = [
     "primary": [
       "Black",
       "Olive",
-      "Brown",
-      "White"
+      "White",
+      "Brown"
     ],
     "secondary": [
       "Copper",
       "Flash"
     ],
-    "notes": "Universal streamer / leech / baitfish option"
+    "notes": "Universal",
+    "sizes": [
+      4,
+      6,
+      8,
+      10
+    ]
   },
   {
-    "name": "Muddler Minnow / Conehead Muddler",
+    "name": "Clouser Minnow",
     "category": "Streamer",
     "primary": [
-      "Brown",
-      "Tan",
-      "Olive"
+      "White",
+      "Chartreuse"
+    ],
+    "secondary": [
+      "Blue"
+    ],
+    "notes": "Baitfish",
+    "sizes": [
+      2,
+      4,
+      6
+    ]
+  },
+  {
+    "name": "Muddler Minnow",
+    "category": "Streamer",
+    "primary": [
+      "Brown"
+    ],
+    "secondary": [
+      "Tan"
+    ],
+    "notes": "Classic",
+    "sizes": [
+      6,
+      8,
+      10
+    ]
+  },
+  {
+    "name": "Bead Head Hare\u2019s Ear",
+    "category": "Nymph",
+    "primary": [
+      "Brown"
+    ],
+    "secondary": [
+      "Tan"
+    ],
+    "notes": "General nymph",
+    "sizes": [
+      12,
+      14,
+      16
+    ]
+  },
+  {
+    "name": "Pheasant Tail",
+    "category": "Nymph",
+    "primary": [
+      "Brown"
+    ],
+    "secondary": [
+      "Copper"
+    ],
+    "notes": "Mayfly nymph",
+    "sizes": [
+      12,
+      14,
+      16,
+      18
+    ]
+  },
+  {
+    "name": "Prince Nymph",
+    "category": "Nymph",
+    "primary": [
+      "Brown"
+    ],
+    "secondary": [
+      "White",
+      "Gold"
+    ],
+    "notes": "Attractor",
+    "sizes": [
+      12,
+      14,
+      16
+    ]
+  },
+  {
+    "name": "Copper John",
+    "category": "Nymph",
+    "primary": [
+      "Copper"
+    ],
+    "secondary": [
+      "Green"
+    ],
+    "notes": "Fast sink",
+    "sizes": [
+      12,
+      14,
+      16
+    ]
+  },
+  {
+    "name": "Stonefly Nymph",
+    "category": "Nymph",
+    "primary": [
+      "Black",
+      "Brown"
     ],
     "secondary": [
       "Gold"
     ],
-    "notes": "Classic streamer and attractor"
+    "notes": "Heavy water",
+    "sizes": [
+      6,
+      8,
+      10
+    ]
   },
   {
-    "name": "Terrestrial Hopper",
+    "name": "Zebra Midge",
+    "category": "Nymph",
+    "primary": [
+      "Black",
+      "Red"
+    ],
+    "secondary": [
+      "Silver"
+    ],
+    "notes": "Midge",
+    "sizes": [
+      18,
+      20,
+      22
+    ]
+  },
+  {
+    "name": "San Juan Worm",
+    "category": "Nymph",
+    "primary": [
+      "Red",
+      "Pink"
+    ],
+    "secondary": [],
+    "notes": "Worm",
+    "sizes": [
+      10,
+      12
+    ]
+  },
+  {
+    "name": "Hopper",
     "category": "Terrestrial",
     "primary": [
       "Tan",
-      "Yellow",
-      "Olive"
+      "Yellow"
     ],
-    "secondary": [
-      "Black",
-      "Orange"
-    ],
-    "notes": "Summer bank-side pattern"
+    "secondary": [],
+    "notes": "Summer",
+    "sizes": [
+      8,
+      10
+    ]
   },
   {
     "name": "Ant",
@@ -201,10 +387,13 @@ window.FLY_REFERENCE = [
       "Black",
       "Cinnamon"
     ],
-    "secondary": [
-      "Red"
-    ],
-    "notes": "Summer terrestrial option"
+    "secondary": [],
+    "notes": "Summer",
+    "sizes": [
+      14,
+      16,
+      18
+    ]
   },
   {
     "name": "Beetle",
@@ -213,9 +402,13 @@ window.FLY_REFERENCE = [
       "Black"
     ],
     "secondary": [
-      "Peacock",
       "Green"
     ],
-    "notes": "Summer terrestrial option"
+    "notes": "Summer",
+    "sizes": [
+      12,
+      14,
+      16
+    ]
   }
 ];

@@ -1,23 +1,14 @@
-Fish Map Test v4
+Fish Map Test v7
 ================
 
-What this build adds
---------------------
-- Overpass nearby-water lookup when you tap the map
-- auto-fill of water name when there is one strong match
-- dropdown of nearby choices when there are multiple plausible matches
-- phone-friendly map-first UI
-- retrieve speed field
-- Michigan starter fly reference with color suggestions
-- localStorage persistence
-
-Important note
---------------
-This uses the public Overpass API from the browser. That means:
-- no API key
-- no direct cost
-- occasional public-service slowness or failures can happen
-- manual water-name entry still works if Overpass has a bad day
+What this batch fixes
+---------------------
+- desktop now mirrors phone workflow: Add Log first, then click the map, then the form opens
+- replaced broken fly dropdown/custom flow with a type-ahead fly field
+- Fly Category now comes before Fly Pattern
+- Water Name renamed to Body of Water
+- Overpass radius increased and large-water fallback added to improve cases like Lake Superior
+- fly size suggestions are populated from the reference list
 
 Files included
 --------------
