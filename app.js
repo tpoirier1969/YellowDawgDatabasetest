@@ -33,11 +33,18 @@ function beginAddLog(){
   $('waterLookupStatus').textContent=state.currentDraftMarker ? 'Drag the marker if you want, or tap the map once to move the spot.' : 'Tap or click the map to set a fishing spot. You can fill out the rest of the form now.';
   setStatus(state.currentDraftMarker ? 'Tap the map once to move the spot, or fill out the log.' : 'Tap the map to set a fishing spot.');
 }
+function setBaitHelper(message=''){
+  const helper=$('baitHelper');
+  const clean=(message||'').trim();
+  helper.textContent=clean;
+  helper.classList.toggle('hidden', !clean);
+}
 function applyBaitTypeUI(){
   const type=$('baitType').value;
   $('nameSuggestions').classList.add('hidden');
   $('baitName').value='';
   $('baitSize').innerHTML='<option value="">Choose one</option>';
+  setBaitHelper('');
   if(type==='Fly'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.remove('hidden');
@@ -46,7 +53,6 @@ function applyBaitTypeUI(){
     setLabelText($('subtypeWrap'), 'Fly Type');
     setLabelText($('nameLabel'), 'Fly Pattern');
     $('baitName').placeholder='Start typing fly name...';
-    $('baitHelper').textContent='Choose fly type, then start typing a fly name.';
   } else if(type==='Lure'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
@@ -55,14 +61,12 @@ function applyBaitTypeUI(){
     setLabelText($('subtypeWrap'), 'Lure Type');
     setLabelText($('nameLabel'), 'Lure Name');
     $('baitName').placeholder='Type lure name...';
-    $('baitHelper').textContent='Choose lure type, then type the lure name.';
   } else if(type==='Live Bait'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.add('hidden');
     setOptions($('baitSubtype'), LIVE_BAIT_TYPES, 'Choose bait type');
     setLabelText($('subtypeWrap'), 'Bait Type');
-    $('baitHelper').textContent='Choose the live bait type. No fly pattern field needed.';
   } else {
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
@@ -71,7 +75,6 @@ function applyBaitTypeUI(){
     setLabelText($('subtypeWrap'), 'Subtype');
     setLabelText($('nameLabel'), 'Name');
     $('baitName').placeholder='Choose bait type first...';
-    $('baitHelper').textContent='Choose bait type first.';
   }
 }
 function updateFlySuggestions(query){
@@ -100,7 +103,7 @@ function applyFly(item){
   if(item.secondary?.length) $('additionalColor').value=item.secondary[0];
   $('baitSize').innerHTML='<option value="">Choose one</option>';
   (item.sizes||[]).forEach(size=>{const o=document.createElement('option');o.value=String(size);o.textContent=String(size);$('baitSize').appendChild(o);});
-  $('baitHelper').textContent=`${item.notes}. Suggested colors: ${[...(item.primary||[]), ...(item.secondary||[])].join(', ')}.`;
+  setBaitHelper(`${item.notes}. Suggested colors: ${[...(item.primary||[]), ...(item.secondary||[])].join(', ')}.`);
 }
 async function detectNearbyWater(lat,lng){
   $('waterLookupStatus').textContent='Checking Overpass for nearby rivers and lakes...';
@@ -183,8 +186,8 @@ $('resetFiltersBtn').addEventListener('click',()=>{$('filterDateFrom').value='';
 ['filterDateFrom','filterDateTo','filterSpecies','filterColor','filterSky','filterRetrieveSpeed'].forEach(id=>$(id).addEventListener('change',()=>{state.filters.dateFrom=$('filterDateFrom').value; state.filters.dateTo=$('filterDateTo').value; state.filters.species=$('filterSpecies').value; state.filters.color=$('filterColor').value; state.filters.sky=$('filterSky').value; state.filters.retrieveSpeed=$('filterRetrieveSpeed').value; render();}));
 $('baitType').addEventListener('change',applyBaitTypeUI);
 $('nearbyWaterSelect').addEventListener('change',()=>{if($('nearbyWaterSelect').value){$('waterName').value=$('nearbyWaterSelect').value;}});
-$('baitSubtype').addEventListener('change',()=>{if($('baitType').value==='Fly') updateFlySuggestions($('baitName').value.trim());});
-$('baitName').addEventListener('input',()=>{if($('baitType').value==='Fly'){updateFlySuggestions($('baitName').value.trim()); const exact=(window.FLY_REFERENCE||[]).find(item=>item.name.toLowerCase()===$('baitName').value.trim().toLowerCase()); if(exact) applyFly(exact);}});
+$('baitSubtype').addEventListener('change',()=>{if($('baitType').value==='Fly'){ setBaitHelper(''); updateFlySuggestions($('baitName').value.trim()); }});
+$('baitName').addEventListener('input',()=>{if($('baitType').value==='Fly'){updateFlySuggestions($('baitName').value.trim()); const exact=(window.FLY_REFERENCE||[]).find(item=>item.name.toLowerCase()===$('baitName').value.trim().toLowerCase()); if(exact) applyFly(exact); else setBaitHelper('');}});
 $('baitName').addEventListener('focus',()=>{if($('baitType').value==='Fly') updateFlySuggestions($('baitName').value.trim());});
 document.addEventListener('click',event=>{if(!$('nameSuggestions').contains(event.target) && event.target!==$('baitName')) $('nameSuggestions').classList.add('hidden');});
 map.on('click',async event=>{if(!state.addMode) return; state.addMode=false; setDraftMarker(event.latlng.lat,event.latlng.lng); openSheet($('logSheet')); closeSheet($('reviewSheet')); closeSheet($('filterSheet')); await detectNearbyWater(event.latlng.lat,event.latlng.lng); setStatus('Spot set. Fill out the log and save it.');});
