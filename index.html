@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fish Map Test v10.2</title>
+<title>Fish Map Test v10.3</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -11,7 +11,7 @@
 </head>
 <body>
 <div id="map"></div>
-<div id="topBadge" class="glass">Fish Map Test v10.2</div>
+<div id="topBadge" class="glass">Fish Map Test v10.3</div>
 <div id="statusBadge" class="glass hidden">Ready.</div>
 
 <div id="floatingActions">
@@ -76,11 +76,6 @@
             <option value="">Choose one</option><option>Surface</option><option>Mid-Column</option><option>Bottom</option>
           </select>
         </label>
-        <label>Presentation Style
-          <select id="presentationStyle" name="presentationStyle" required>
-            <option value="">Choose one</option><option>Dead Drift</option><option>Swing</option><option>Strip</option><option>Twitch</option><option>Jig</option><option>Under Bobber</option><option>Bottom Bounce</option><option>Static</option>
-          </select>
-        </label>
         <label>Structure Type
           <select id="structureType" name="structureType" required>
             <option value="">Choose one</option><option>Pool</option><option>Riffle</option><option>Run</option><option>Seam</option><option>Undercut Bank</option><option>Logjam</option><option>Weed Edge</option><option>Rocky Bank</option><option>Current Break</option><option>Drop-off</option><option>Inlet / Outlet</option><option>Open Water</option><option>Shoreline</option>
@@ -117,7 +112,7 @@
 
       <div class="helper-box" id="baitHelper">Choose bait type first.</div>
 
-      <div class="form-grid three">
+      <div class="form-grid four">
         <label>Main Color
           <select id="mainColor" name="mainColor" required>
             <option value="">Choose one</option>
@@ -133,6 +128,11 @@
         <label>Retrieve Speed
           <select id="retrieveSpeed" name="retrieveSpeed" required>
             <option value="">Choose one</option><option>Still</option><option>Drift</option><option>Slow</option><option>Medium</option><option>Fast</option>
+          </select>
+        </label>
+        <label>Presentation Style
+          <select id="presentationStyle" name="presentationStyle" required>
+            <option value="">Choose one</option><option>Dead Drift</option><option>Swing</option><option>Strip</option><option>Twitch</option><option>Jig</option><option>Under Bobber</option><option>Bottom Bounce</option><option>Static</option>
           </select>
         </label>
       </div>
