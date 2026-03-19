@@ -25,13 +25,29 @@ function setLabelText(labelEl, text){
     labelEl.insertBefore(document.createTextNode(text), labelEl.firstChild);
   }
 }
+function syncAddLogButton(){
+  const btn=$('addLogBtn');
+  if(!btn) return;
+  btn.textContent=state.addMode ? 'Click Map to Set Spot' : 'Add Log';
+  btn.classList.toggle('primary', !state.addMode);
+}
+function cancelAddMode(message=''){
+  state.addMode=false;
+  syncAddLogButton();
+  if(message) setStatus(message, 3200);
+}
 function beginAddLog(){
+  if(state.addMode){
+    cancelAddMode('Add Log canceled.');
+    return;
+  }
   state.addMode=true;
-  openSheet($('logSheet'));
+  syncAddLogButton();
+  closeSheet($('logSheet'));
   closeSheet($('reviewSheet'));
   closeSheet($('filterSheet'));
-  $('waterLookupStatus').textContent=state.currentDraftMarker ? 'Drag the marker if you want, or tap the map once to move the spot.' : 'Tap or click the map to set a fishing spot. You can fill out the rest of the form now.';
-  setStatus(state.currentDraftMarker ? 'Tap the map once to move the spot, or fill out the log.' : 'Tap the map to set a fishing spot.');
+  $('waterLookupStatus').textContent=state.currentDraftMarker ? 'Tap or click the map once to move the spot.' : 'Tap or click the map to set a fishing spot.';
+  setStatus(state.currentDraftMarker ? 'Tap the map once to move the spot.' : 'Tap the map to set a fishing spot.', 5200);
 }
 function setBaitHelper(message=''){
   const helper=$('baitHelper');
@@ -163,10 +179,10 @@ function onSubmit(event){
   persistEntries(); clearFormAfterSave(); render(); openSheet($('reviewSheet')); closeSheet($('logSheet')); setStatus('Fishing log saved.');
 }
 function clearFormAfterSave(){$('logForm').reset(); $('date').value=new Date().toISOString().slice(0,10); clearDraftMarker(); applyBaitTypeUI();}
-function clearDraftMarker(){$('waterName').value=''; $('nearbyWaterSelect').innerHTML='<option value="">Choose one</option>'; $('nearbyWaterWrap').classList.add('hidden'); $('waterLookupStatus').textContent='Click Add Log, then tap/click the map to set a spot.'; if(state.currentDraftMarker){map.removeLayer(state.currentDraftMarker); state.currentDraftMarker=null;}}
+function clearDraftMarker(){$('waterName').value=''; $('nearbyWaterSelect').innerHTML='<option value="">Choose one</option>'; $('nearbyWaterWrap').classList.add('hidden'); $('waterLookupStatus').textContent='Click Add Log, then tap/click the map to set a spot.'; if(state.currentDraftMarker){map.removeLayer(state.currentDraftMarker); state.currentDraftMarker=null;} cancelAddMode();}
 function openSheet(el){el.classList.add('visible'); el.setAttribute('aria-hidden','false');}
 function closeSheet(el){el.classList.remove('visible'); el.setAttribute('aria-hidden','true');}
-function setStatus(message){$('statusBadge').textContent=message; $('statusBadge').classList.remove('hidden'); clearTimeout(setStatus._timer); setStatus._timer=setTimeout(()=>$('statusBadge').classList.add('hidden'),2600);}
+function setStatus(message, duration=2600){$('statusBadge').textContent=message; $('statusBadge').classList.remove('hidden'); clearTimeout(setStatus._timer); setStatus._timer=setTimeout(()=>$('statusBadge').classList.add('hidden'),duration);}
 function persistEntries(){localStorage.setItem(STORAGE_KEY, JSON.stringify(state.entries));}
 function loadEntries(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch{return [];}}
 function mostCommon(entries,key){const counts=new Map(); for(const entry of entries){if(!entry[key]) continue; counts.set(entry[key],(counts.get(entry[key])||0)+1);} const sorted=[...counts.entries()].sort((a,b)=>b[1]-a[1]); return sorted.length ? sorted[0][0] : '';}
@@ -176,9 +192,9 @@ function escapeHtml(v){return String(v).replaceAll('&','&amp;').replaceAll('<','
 
 $('date').value=new Date().toISOString().slice(0,10);
 $('addLogBtn').addEventListener('click',beginAddLog);
-$('reviewBtn').addEventListener('click',()=>{openSheet($('reviewSheet')); closeSheet($('logSheet')); closeSheet($('filterSheet'));});
-$('filterBtn').addEventListener('click',()=>{openSheet($('filterSheet')); closeSheet($('logSheet')); closeSheet($('reviewSheet'));});
-$('closeLogSheetBtn').addEventListener('click',()=>closeSheet($('logSheet')));
+$('reviewBtn').addEventListener('click',()=>{cancelAddMode(); openSheet($('reviewSheet')); closeSheet($('logSheet')); closeSheet($('filterSheet'));});
+$('filterBtn').addEventListener('click',()=>{cancelAddMode(); openSheet($('filterSheet')); closeSheet($('logSheet')); closeSheet($('reviewSheet'));});
+$('closeLogSheetBtn').addEventListener('click',()=>{closeSheet($('logSheet')); cancelAddMode();});
 $('closeReviewSheetBtn').addEventListener('click',()=>closeSheet($('reviewSheet')));
 $('closeFilterSheetBtn').addEventListener('click',()=>closeSheet($('filterSheet')));
 $('clearSpotBtn').addEventListener('click',clearDraftMarker);
@@ -190,7 +206,8 @@ $('baitSubtype').addEventListener('change',()=>{if($('baitType').value==='Fly'){
 $('baitName').addEventListener('input',()=>{if($('baitType').value==='Fly'){updateFlySuggestions($('baitName').value.trim()); const exact=(window.FLY_REFERENCE||[]).find(item=>item.name.toLowerCase()===$('baitName').value.trim().toLowerCase()); if(exact) applyFly(exact); else setBaitHelper('');}});
 $('baitName').addEventListener('focus',()=>{if($('baitType').value==='Fly') updateFlySuggestions($('baitName').value.trim());});
 document.addEventListener('click',event=>{if(!$('nameSuggestions').contains(event.target) && event.target!==$('baitName')) $('nameSuggestions').classList.add('hidden');});
-map.on('click',async event=>{if(!state.addMode) return; state.addMode=false; setDraftMarker(event.latlng.lat,event.latlng.lng); openSheet($('logSheet')); closeSheet($('reviewSheet')); closeSheet($('filterSheet')); await detectNearbyWater(event.latlng.lat,event.latlng.lng); setStatus('Spot set. Fill out the log and save it.');});
+map.on('click',async event=>{if(!state.addMode) return; state.addMode=false; syncAddLogButton(); setDraftMarker(event.latlng.lat,event.latlng.lng); openSheet($('logSheet')); closeSheet($('reviewSheet')); closeSheet($('filterSheet')); await detectNearbyWater(event.latlng.lat,event.latlng.lng); setStatus('Spot set. Fill out the log and save it.', 3600);});
 $('logForm').addEventListener('submit',onSubmit);
 applyBaitTypeUI();
+syncAddLogButton();
 render();
