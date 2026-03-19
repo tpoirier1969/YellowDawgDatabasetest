@@ -23,14 +23,19 @@
 <div id="logSheet" class="sheet" aria-hidden="true">
   <div class="sheet-handle"></div>
   <div class="sheet-head">
-    <div><h2>New Fishing Log</h2><p>Bait type now changes the next field and options.</p></div>
+    <div><h2>New Fishing Log</h2><p>Now supports a broader Midwest species list and phone-based spot marking.</p></div>
     <button id="closeLogSheetBtn" class="sheetClose" type="button">Close</button>
   </div>
 
   <form id="logForm" autocomplete="off">
     <div class="section">
       <div class="section-title">Location</div>
-      <div class="helper-box" id="waterLookupStatus">Click Add Log, then tap/click the map to set a spot.</div>
+      <div class="helper-box" id="waterLookupStatus">Tap Add Log to use your phone location, or pick a spot on the map.</div>
+      <div class="location-actions">
+        <button type="button" id="useDeviceLocationBtn" class="secondaryBtn">Use My Location</button>
+        <button type="button" id="pickOnMapBtn" class="secondaryBtn">Pick on Map</button>
+      </div>
+      <div id="locationSummary" class="helper-box hidden"></div>
       <div class="form-grid two">
         <label>Date<input type="date" id="date" name="date" required></label>
         <label>Time of Day
@@ -41,6 +46,9 @@
       </div>
       <div class="form-grid two">
         <label>Body of Water<input type="text" id="waterName" name="waterName" required></label>
+        <label>Waypoint / Spot Name<input type="text" id="waypointName" name="waypointName" placeholder="Optional"></label>
+      </div>
+      <div class="form-grid two">
         <label id="nearbyWaterWrap" class="hidden">Nearby Water Choices
           <select id="nearbyWaterSelect" name="nearbyWaterSelect"><option value="">Choose one</option></select>
         </label>
@@ -74,6 +82,11 @@
         <label>Depth Zone
           <select id="depthZone" name="depthZone" required>
             <option value="">Choose one</option><option>Surface</option><option>Mid-Column</option><option>Bottom</option>
+          </select>
+        </label>
+        <label>Presentation Style
+          <select id="presentationStyle" name="presentationStyle" required>
+            <option value="">Choose one</option><option>Dead Drift</option><option>Swing</option><option>Strip</option><option>Twitch</option><option>Jig</option><option>Under Bobber</option><option>Bottom Bounce</option><option>Static</option>
           </select>
         </label>
         <label>Structure Type
@@ -112,7 +125,7 @@
 
       <div class="helper-box" id="baitHelper">Choose bait type first.</div>
 
-      <div class="form-grid four">
+      <div class="form-grid three">
         <label>Main Color
           <select id="mainColor" name="mainColor" required>
             <option value="">Choose one</option>
@@ -130,11 +143,6 @@
             <option value="">Choose one</option><option>Still</option><option>Drift</option><option>Slow</option><option>Medium</option><option>Fast</option>
           </select>
         </label>
-        <label>Presentation Style
-          <select id="presentationStyle" name="presentationStyle" required>
-            <option value="">Choose one</option><option>Dead Drift</option><option>Swing</option><option>Strip</option><option>Twitch</option><option>Jig</option><option>Under Bobber</option><option>Bottom Bounce</option><option>Static</option>
-          </select>
-        </label>
       </div>
     </div>
 
@@ -145,7 +153,7 @@
       <div class="form-grid four">
         <label>Species
           <select id="species" name="species" required>
-            <option value="">Choose one</option><option>Brook Trout</option><option>Brown Trout</option><option>Rainbow Trout</option>
+            <option value="">Choose one</option>
           </select>
         </label>
         <label>Size (inches)<input type="number" id="sizeInches" name="sizeInches" min="0" step="0.25" required></label>
@@ -174,7 +182,7 @@
   <div class="sheet-handle"></div>
   <div class="sheet-head"><div><h2>Filters</h2><p>Keep the map from turning into point soup.</p></div><button id="closeFilterSheetBtn" class="sheetClose" type="button">Close</button></div>
   <div class="form-grid two"><label>From Date<input type="date" id="filterDateFrom"></label><label>To Date<input type="date" id="filterDateTo"></label></div>
-  <div class="form-grid two"><label>Species<select id="filterSpecies"><option value="">All</option><option>Brook Trout</option><option>Brown Trout</option><option>Rainbow Trout</option></select></label><label>Main Color<select id="filterColor"><option value="">All</option><option>Black</option><option>Brown</option><option>Olive</option><option>Green</option><option>Tan</option><option>Cream</option><option>Yellow</option><option>Orange</option><option>Red</option><option>Pink</option><option>Purple</option><option>White</option><option>Gray</option><option>Silver</option><option>Gold</option><option>Peacock</option><option>Chartreuse</option><option>Copper</option><option>Pearl</option><option>Flash</option><option>Dun</option><option>Cinnamon</option></select></label></div>
+  <div class="form-grid two"><label>Species<select id="filterSpecies"><option value="">All</option></select></label><label>Main Color<select id="filterColor"><option value="">All</option><option>Black</option><option>Brown</option><option>Olive</option><option>Green</option><option>Tan</option><option>Cream</option><option>Yellow</option><option>Orange</option><option>Red</option><option>Pink</option><option>Purple</option><option>White</option><option>Gray</option><option>Silver</option><option>Gold</option><option>Peacock</option><option>Chartreuse</option><option>Copper</option><option>Pearl</option><option>Flash</option><option>Dun</option><option>Cinnamon</option></select></label></div>
   <div class="form-grid two"><label>Sky<select id="filterSky"><option value="">All</option><option>Clear</option><option>Cloudy</option><option>Rain</option><option>Night</option></select></label><label>Retrieve Speed<select id="filterRetrieveSpeed"><option value="">All</option><option>Still</option><option>Drift</option><option>Slow</option><option>Medium</option><option>Fast</option></select></label></div>
   <div class="button-row"><button id="resetFiltersBtn" type="button" class="secondaryBtn">Reset Filters</button></div>
 </div>

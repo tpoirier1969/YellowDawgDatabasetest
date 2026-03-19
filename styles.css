@@ -19,6 +19,11 @@ label { display:flex; flex-direction:column; gap:6px; font-size:14px; color:var(
 input,select,textarea { width:100%; min-height:46px; border-radius:12px; border:1px solid var(--border); background:var(--panel-2); color:var(--text); padding:11px 12px; font:inherit; }
 textarea { min-height:92px; resize:vertical; }
 .button-row { display:flex; justify-content:flex-end; gap:10px; margin-top:14px; flex-wrap:wrap; }
+
+.location-actions { display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+.location-actions .secondaryBtn { flex:1 1 180px; }
+button:disabled { opacity:.6; cursor:not-allowed; }
+
 .helper-box { margin-bottom:12px; padding:11px 12px; border-radius:12px; background:rgba(255,255,255,.05); color:var(--muted); font-size:13px; line-height:1.35; border:1px solid var(--border); }
 .hidden { display:none !important; }
 .typeahead-wrap { position:relative; margin-bottom:12px; }
