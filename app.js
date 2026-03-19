@@ -1,716 +1,480 @@
-const APP_VERSION = '2026.03.18d';
-const STORAGE_KEY = 'yellowdog-fishing-log-v1';
+
+const STORAGE_KEY = 'fishMapTestV4.entries';
+const DEFAULT_CENTER = [46.62, -87.67];
+const DEFAULT_ZOOM = 9;
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_RADIUS_METERS = 300;
 
 const state = {
-  map: null,
-  markerLayer: null,
-  logs: [],
-  markersById: new Map(),
-  isPlacing: false,
-  pendingLatLng: null,
-  pendingMarker: null,
-  wasRepicking: false,
-  waterLookupRequestId: 0,
+  entries: loadEntries(),
+  mapMarkers: new Map(),
+  currentDraftMarker: null,
+  addMode: false,
+  filters: { species: '', color: '', sky: '', retrieveSpeed: '' },
+  nearbyWaterChoices: []
 };
 
-const els = {
-  addLogBtn: document.getElementById('addLogBtn'),
-  addLogBtnHud: document.getElementById('addLogBtnHud'),
-  fitLogsBtn: document.getElementById('fitLogsBtn'),
-  fitLogsBtnHud: document.getElementById('fitLogsBtnHud'),
-  versionBadgeTop: document.getElementById('versionBadgeTop'),
-  versionBadgeMap: document.getElementById('versionBadgeMap'),
-  placementPrompt: document.getElementById('placementPrompt'),
-  placementPromptText: document.getElementById('placementPromptText'),
-  cancelPlacementBtn: document.getElementById('cancelPlacementBtn'),
-  toast: document.getElementById('toast'),
-  formModal: document.getElementById('formModal'),
-  closeFormBtn: document.getElementById('closeFormBtn'),
-  cancelFormBtn: document.getElementById('cancelFormBtn'),
-  repickLocationBtn: document.getElementById('repickLocationBtn'),
-  logForm: document.getElementById('logForm'),
-  locationText: document.getElementById('locationText'),
-  emptyState: document.getElementById('emptyState'),
-  logList: document.getElementById('logList'),
-  logCountBadge: document.getElementById('logCountBadge'),
-  logFormIntro: document.getElementById('logFormIntro'),
-  waterbodyInput: document.getElementById('waterbodyInput'),
-  waterbodyStatus: document.getElementById('waterbodyStatus'),
-};
+const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
-function init() {
-  setVersionBadges();
-  initMap();
-  loadLogs();
-  renderLogs();
-  wireEvents();
-  setDefaultFormValues();
-}
+const addLogBtn = document.getElementById('addLogBtn');
+const reviewBtn = document.getElementById('reviewBtn');
+const filterBtn = document.getElementById('filterBtn');
+const logSheet = document.getElementById('logSheet');
+const reviewSheet = document.getElementById('reviewSheet');
+const filterSheet = document.getElementById('filterSheet');
+const closeLogSheetBtn = document.getElementById('closeLogSheetBtn');
+const closeReviewSheetBtn = document.getElementById('closeReviewSheetBtn');
+const closeFilterSheetBtn = document.getElementById('closeFilterSheetBtn');
+const clearSpotBtn = document.getElementById('clearSpotBtn');
+const statusBadge = document.getElementById('statusBadge');
+const logForm = document.getElementById('logForm');
+const reviewSubcopy = document.getElementById('reviewSubcopy');
+const entryList = document.getElementById('entryList');
+const entryCount = document.getElementById('entryCount');
+const statsGrid = document.getElementById('statsGrid');
+const dateInput = document.getElementById('date');
+const latInput = document.getElementById('lat');
+const lngInput = document.getElementById('lng');
+const waterNameInput = document.getElementById('waterName');
+const nearbyWaterWrap = document.getElementById('nearbyWaterWrap');
+const nearbyWaterSelect = document.getElementById('nearbyWaterSelect');
+const waterLookupStatus = document.getElementById('waterLookupStatus');
+const flyPatternSelect = document.getElementById('flyPatternSelect');
+const customPatternWrap = document.getElementById('customPatternWrap');
+const customFlyPattern = document.getElementById('customFlyPattern');
+const flyCategory = document.getElementById('flyCategory');
+const flyColorPrimary = document.getElementById('flyColorPrimary');
+const flyColorSecondary = document.getElementById('flyColorSecondary');
+const flyHelper = document.getElementById('flyHelper');
 
-function setVersionBadges() {
-  if (els.versionBadgeTop) {
-    els.versionBadgeTop.textContent = `v${APP_VERSION}`;
-  }
-  if (els.versionBadgeMap) {
-    els.versionBadgeMap.textContent = `v${APP_VERSION}`;
-  }
-}
+const filterSpecies = document.getElementById('filterSpecies');
+const filterColor = document.getElementById('filterColor');
+const filterSky = document.getElementById('filterSky');
+const filterRetrieveSpeed = document.getElementById('filterRetrieveSpeed');
+const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 
-function initMap() {
-  state.map = L.map('map', {
-    zoomControl: true,
-    preferCanvas: true,
-  }).setView([46.6548, -87.5167], 10);
+dateInput.value = new Date().toISOString().slice(0, 10);
 
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors',
-  }).addTo(state.map);
-
-  state.markerLayer = L.layerGroup().addTo(state.map);
-  state.map.on('click', onMapClick);
-}
+seedFlyPatterns();
+wireEvents();
+render();
 
 function wireEvents() {
-  [els.addLogBtn, els.addLogBtnHud].forEach((button) => {
-    if (button) {
-      button.addEventListener('click', startPlacementMode);
-    }
+  flyPatternSelect.addEventListener('change', onFlyChange);
+
+  nearbyWaterSelect.addEventListener('change', () => {
+    const value = nearbyWaterSelect.value;
+    if (!value) return;
+    waterNameInput.value = value;
+    waterLookupStatus.textContent = 'Nearby water selected from Overpass results.';
   });
 
-  [els.fitLogsBtn, els.fitLogsBtnHud].forEach((button) => {
-    if (button) {
-      button.addEventListener('click', fitAllLogs);
-    }
+  addLogBtn.addEventListener('click', () => {
+    state.addMode = true;
+    openSheet(logSheet); closeSheet(reviewSheet); closeSheet(filterSheet);
+    setStatus('Tap the map to set the fishing spot.');
+  });
+  reviewBtn.addEventListener('click', () => { openSheet(reviewSheet); closeSheet(logSheet); closeSheet(filterSheet); });
+  filterBtn.addEventListener('click', () => { openSheet(filterSheet); closeSheet(logSheet); closeSheet(reviewSheet); });
+
+  closeLogSheetBtn.addEventListener('click', () => closeSheet(logSheet));
+  closeReviewSheetBtn.addEventListener('click', () => closeSheet(reviewSheet));
+  closeFilterSheetBtn.addEventListener('click', () => closeSheet(filterSheet));
+  clearSpotBtn.addEventListener('click', clearDraftMarker);
+
+  [filterSpecies, filterColor, filterSky, filterRetrieveSpeed].forEach(el => {
+    el.addEventListener('change', () => {
+      state.filters.species = filterSpecies.value;
+      state.filters.color = filterColor.value;
+      state.filters.sky = filterSky.value;
+      state.filters.retrieveSpeed = filterRetrieveSpeed.value;
+      render();
+    });
   });
 
-  els.cancelPlacementBtn.addEventListener('click', cancelPlacementMode);
-  els.closeFormBtn.addEventListener('click', cancelForm);
-  els.cancelFormBtn.addEventListener('click', cancelForm);
-  els.repickLocationBtn.addEventListener('click', repickLocation);
-  els.logForm.addEventListener('submit', onSubmitLogForm);
-
-  els.formModal.addEventListener('click', (event) => {
-    if (event.target?.dataset?.closeModal === 'true') {
-      cancelForm();
-    }
+  resetFiltersBtn.addEventListener('click', () => {
+    filterSpecies.value = ''; filterColor.value = ''; filterSky.value = ''; filterRetrieveSpeed.value = '';
+    state.filters = { species:'', color:'', sky:'', retrieveSpeed:'' };
+    render();
+    setStatus('Filters reset.');
   });
 
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') {
+  map.on('click', async event => {
+    if (!state.addMode) return;
+    setDraftMarker(event.latlng.lat, event.latlng.lng);
+    openSheet(logSheet);
+    closeSheet(reviewSheet);
+    closeSheet(filterSheet);
+    await detectNearbyWater(event.latlng.lat, event.latlng.lng);
+    setStatus('Spot set. Fill in the log and save it.');
+  });
+
+  logForm.addEventListener('submit', onSubmit);
+}
+
+function seedFlyPatterns() {
+  window.FLY_REFERENCE.forEach(fly => {
+    const opt = document.createElement('option');
+    opt.value = fly.name;
+    opt.textContent = fly.name;
+    flyPatternSelect.appendChild(opt);
+  });
+}
+
+function onFlyChange() {
+  const value = flyPatternSelect.value;
+  if (value === '_custom') {
+    customPatternWrap.classList.remove('hidden');
+    flyHelper.textContent = 'Type your custom fly pattern and choose the colors yourself.';
+    return;
+  }
+  customPatternWrap.classList.add('hidden');
+  customFlyPattern.value = '';
+  const fly = window.FLY_REFERENCE.find(item => item.name === value);
+  if (!fly) {
+    flyHelper.textContent = 'Pick a starter fly and I’ll suggest likely colors instead of making you type every damn thing from scratch.';
+    return;
+  }
+  flyCategory.value = fly.category || '';
+  if (fly.primary?.length) flyColorPrimary.value = fly.primary[0];
+  if (fly.secondary?.length) flyColorSecondary.value = fly.secondary[0];
+  flyHelper.textContent = `${fly.notes}. Suggested colors: ${[...fly.primary, ...fly.secondary].join(', ')}.`;
+}
+
+async function detectNearbyWater(lat, lng) {
+  waterLookupStatus.textContent = 'Checking Overpass for nearby rivers and lakes...';
+  nearbyWaterWrap.classList.add('hidden');
+  nearbyWaterSelect.innerHTML = '<option value="">Choose one</option>';
+  state.nearbyWaterChoices = [];
+
+  const query = `
+    [out:json][timeout:20];
+    (
+      way["waterway"~"river|stream|canal|ditch"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      relation["waterway"~"river|stream|canal|ditch"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      way["natural"="water"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      relation["natural"="water"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      way["water"~"lake|pond|reservoir"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+      relation["water"~"lake|pond|reservoir"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});
+    );
+    out tags center;
+  `;
+
+  try {
+    const response = await fetch(OVERPASS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: query
+    });
+    if (!response.ok) throw new Error(`Overpass returned ${response.status}`);
+    const data = await response.json();
+    const candidates = normalizeWaterCandidates(data.elements || [], lat, lng);
+
+    if (!candidates.length) {
+      waterLookupStatus.textContent = 'Overpass did not find a named nearby water body. You can type the water name manually.';
       return;
     }
 
-    if (!els.formModal.classList.contains('hidden')) {
-      cancelForm();
+    state.nearbyWaterChoices = candidates;
+    if (candidates.length === 1) {
+      waterNameInput.value = candidates[0].name;
+      waterLookupStatus.textContent = `Overpass matched: ${candidates[0].name}.`;
       return;
     }
 
-    if (state.isPlacing) {
-      cancelPlacementMode();
+    nearbyWaterWrap.classList.remove('hidden');
+    candidates.forEach(candidate => {
+      const opt = document.createElement('option');
+      opt.value = candidate.name;
+      opt.textContent = `${candidate.name} · ${candidate.featureLabel} · ${Math.round(candidate.distance)}m`;
+      nearbyWaterSelect.appendChild(opt);
+    });
+
+    waterNameInput.value = candidates[0].name;
+    nearbyWaterSelect.value = candidates[0].name;
+    waterLookupStatus.textContent = `Overpass found ${candidates.length} nearby water features. Pick the right one if needed.`;
+  } catch (error) {
+    waterLookupStatus.textContent = `Overpass lookup failed: ${error.message}. You can still type the water name manually.`;
+  }
+}
+
+function normalizeWaterCandidates(elements, lat, lng) {
+  const dedupe = new Map();
+
+  for (const el of elements) {
+    const tags = el.tags || {};
+    const name = (tags.name || '').trim();
+    if (!name) continue;
+
+    const centerLat = el.center?.lat ?? el.lat;
+    const centerLng = el.center?.lon ?? el.lon;
+    if (typeof centerLat !== 'number' || typeof centerLng !== 'number') continue;
+
+    const featureLabel = classifyFeature(tags);
+    const distance = haversineMeters(lat, lng, centerLat, centerLng);
+    const key = `${name.toLowerCase()}|${featureLabel.toLowerCase()}`;
+
+    if (!dedupe.has(key) || dedupe.get(key).distance > distance) {
+      dedupe.set(key, { name, featureLabel, distance, centerLat, centerLng });
     }
-  });
-}
-
-function startPlacementMode() {
-  state.isPlacing = true;
-  state.wasRepicking = false;
-  document.body.classList.add('is-placing');
-  els.placementPromptText.textContent = getPickInstructionText();
-  els.placementPrompt.classList.remove('hidden');
-  showToast('Placement mode on. Pick a spot on the map.');
-}
-
-function cancelPlacementMode() {
-  state.isPlacing = false;
-  state.wasRepicking = false;
-  document.body.classList.remove('is-placing');
-  els.placementPrompt.classList.add('hidden');
-  hideToast();
-}
-
-function onMapClick(event) {
-  if (!state.isPlacing) {
-    return;
   }
 
-  state.pendingLatLng = { lat: event.latlng.lat, lng: event.latlng.lng };
-  placePendingMarker(event.latlng);
-  cancelPlacementMode();
-  openForm();
-  startWaterbodyLookup(state.pendingLatLng);
+  return [...dedupe.values()].sort((a, b) => a.distance - b.distance).slice(0, 8);
 }
 
-function placePendingMarker(latlng) {
-  removePendingMarker();
-  state.pendingMarker = L.marker(latlng, { draggable: false, opacity: 0.95 }).addTo(state.map);
-  state.pendingMarker.bindPopup(
-    '<div class="popup-title">New log spot</div><div class="popup-line">Fill out the form to save it.</div>'
-  );
+function classifyFeature(tags) {
+  if (tags.waterway) return capitalize(tags.waterway);
+  if (tags.water) return capitalize(tags.water);
+  if (tags.natural === 'water') return 'Water';
+  return 'Water';
 }
 
-function removePendingMarker() {
-  if (!state.pendingMarker) {
-    return;
-  }
-  state.map.removeLayer(state.pendingMarker);
-  state.pendingMarker = null;
+function capitalize(value) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
 }
 
-function openForm() {
-  if (!state.pendingLatLng) {
-    showToast('Pick a spot on the map first.');
-    return;
-  }
-
-  els.locationText.textContent = formatLatLng(state.pendingLatLng.lat, state.pendingLatLng.lng);
-  els.logFormIntro.textContent = state.wasRepicking
-    ? 'Spot updated. Finish the rest here.'
-    : 'Spot locked. Now add the details.';
-  els.formModal.classList.remove('hidden');
-  els.formModal.setAttribute('aria-hidden', 'false');
-  setWaterbodyStatus('Trying to identify the nearby named water feature…', 'info');
-
-  requestAnimationFrame(() => {
-    const firstInput = els.logForm.querySelector('input[name="date"]');
-    firstInput?.focus();
-  });
+function haversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-function closeForm() {
-  els.formModal.classList.add('hidden');
-  els.formModal.setAttribute('aria-hidden', 'true');
-}
-
-function cancelForm() {
-  closeForm();
-  state.waterLookupRequestId += 1;
-  resetForm();
-  removePendingMarker();
-  state.pendingLatLng = null;
-  state.wasRepicking = false;
-  hideToast();
-}
-
-function repickLocation() {
-  closeForm();
-  state.wasRepicking = true;
-  startPlacementMode();
-  showToast('Pick a new spot on the map.');
-}
-
-function onSubmitLogForm(event) {
+function onSubmit(event) {
   event.preventDefault();
+  const raw = Object.fromEntries(new FormData(logForm).entries());
+  const flyPattern = raw.flyPatternSelect === '_custom' ? raw.customFlyPattern.trim() : raw.flyPatternSelect.trim();
 
-  if (!state.pendingLatLng) {
-    showToast('No map location selected.');
-    return;
-  }
+  if (!flyPattern) return alert('Pick a fly pattern or type a custom one.');
+  if (!raw.lat || !raw.lng) return alert('Tap the map first so the log is tied to a real spot.');
 
-  const formData = new FormData(els.logForm);
-  const log = {
-    id: buildId(),
+  const entry = {
+    id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
-    lat: state.pendingLatLng.lat,
-    lng: state.pendingLatLng.lng,
-    date: formData.get('date') || '',
-    time: formData.get('time') || '',
-    species: trim(formData.get('species')),
-    waterbody: trim(formData.get('waterbody')),
-    flyLure: trim(formData.get('flyLure')),
-    color: trim(formData.get('color')),
-    retrieveSpeed: trim(formData.get('retrieveSpeed')),
-    result: trim(formData.get('result')),
-    airTemp: trim(formData.get('airTemp')),
-    waterTemp: trim(formData.get('waterTemp')),
-    notes: trim(formData.get('notes')),
+    date: raw.date,
+    timeOfDay: raw.timeOfDay,
+    waterName: raw.waterName.trim(),
+    flyPattern,
+    flyCategory: raw.flyCategory,
+    flyColorPrimary: raw.flyColorPrimary,
+    flyColorSecondary: raw.flyColorSecondary,
+    flyColorNotes: raw.flyColorNotes.trim(),
+    species: raw.species,
+    fishSize: Number(raw.fishSize || 0),
+    quantity: Number(raw.quantity || 1),
+    skyCondition: raw.skyCondition,
+    airTemp: raw.airTemp ? Number(raw.airTemp) : null,
+    waterTemp: raw.waterTemp ? Number(raw.waterTemp) : null,
+    waterType: raw.waterType,
+    depthZone: raw.depthZone,
+    riverPosition: raw.riverPosition,
+    retrieveSpeed: raw.retrieveSpeed,
+    lat: Number(raw.lat),
+    lng: Number(raw.lng),
+    notes: raw.notes.trim()
   };
 
-  state.logs.unshift(log);
-  saveLogs();
-  addSavedMarker(log);
-  renderLogs();
-  closeForm();
-  resetForm();
-  removePendingMarker();
-  state.pendingLatLng = null;
-  state.wasRepicking = false;
-  flyToLog(log.id);
-  showToast('Log saved.');
+  state.entries.unshift(entry);
+  persistEntries();
+  clearFormAfterSave();
+  render();
+  openSheet(reviewSheet);
+  closeSheet(logSheet);
+  setStatus('Fishing log saved.');
 }
 
-function buildId() {
-  if (window.crypto?.randomUUID) {
-    return window.crypto.randomUUID();
+function render() {
+  const visibleEntries = getFilteredEntries();
+  renderMarkers(visibleEntries);
+  renderStats(visibleEntries);
+  renderList(visibleEntries);
+}
+
+function getFilteredEntries() {
+  return state.entries.filter(entry => {
+    if (state.filters.species && entry.species !== state.filters.species) return false;
+    if (state.filters.color && entry.flyColorPrimary !== state.filters.color) return false;
+    if (state.filters.sky && entry.skyCondition !== state.filters.sky) return false;
+    if (state.filters.retrieveSpeed && entry.retrieveSpeed !== state.filters.retrieveSpeed) return false;
+    return true;
+  });
+}
+
+function renderMarkers(entries) {
+  for (const marker of state.mapMarkers.values()) map.removeLayer(marker);
+  state.mapMarkers.clear();
+
+  entries.forEach(entry => {
+    const marker = L.marker([entry.lat, entry.lng]).addTo(map);
+    marker.bindPopup(buildPopup(entry));
+    marker.on('click', () => { reviewSubcopy.textContent = `${entry.waterName} · ${entry.flyPattern} · ${entry.retrieveSpeed} retrieve`; });
+    state.mapMarkers.set(entry.id, marker);
+  });
+}
+
+function buildPopup(entry) {
+  return `
+    <div>
+      <strong>${escapeHtml(entry.waterName)}</strong><br>
+      ${escapeHtml(entry.species)} · ${escapeHtml(String(entry.fishSize))}" · Qty ${escapeHtml(String(entry.quantity))}<br>
+      ${escapeHtml(entry.flyPattern)} (${escapeHtml(entry.flyColorPrimary)}${entry.flyColorSecondary ? '/' + escapeHtml(entry.flyColorSecondary) : ''})<br>
+      ${escapeHtml(entry.skyCondition)} · ${escapeHtml(entry.waterType)} · ${escapeHtml(entry.retrieveSpeed)}
+    </div>
+  `;
+}
+
+function renderStats(entries) {
+  statsGrid.innerHTML = '';
+  const totalEntries = entries.length;
+  const totalFish = entries.reduce((sum, entry) => sum + (entry.quantity || 0), 0);
+  const avgSize = totalEntries ? (entries.reduce((sum, e) => sum + (e.fishSize || 0), 0) / totalEntries).toFixed(1) : '0.0';
+  const topFly = mostCommon(entries, 'flyPattern') || '—';
+  const topRetrieve = mostCommon(entries, 'retrieveSpeed') || '—';
+  [['Entries', totalEntries], ['Fish Logged', totalFish], ['Avg Size', `${avgSize}"`], ['Top Fly', topFly], ['Top Retrieve', topRetrieve]]
+    .forEach(([label, value]) => {
+      const card = document.createElement('div');
+      card.className = 'statCard';
+      card.innerHTML = `<div class="statLabel">${escapeHtml(label)}</div><div class="statValue">${escapeHtml(String(value))}</div>`;
+      statsGrid.appendChild(card);
+    });
+}
+
+function renderList(entries) {
+  entryList.innerHTML = '';
+  entryCount.textContent = `${entries.length} shown / ${state.entries.length} total`;
+  if (!entries.length) {
+    entryList.innerHTML = '<div class="entryCard"><p class="entryMeta">No logs match the current filters yet.</p></div>';
+    return;
   }
-  return `log-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function addSavedMarker(log) {
-  const marker = L.marker([log.lat, log.lng]).addTo(state.markerLayer);
-  marker.bindPopup(buildPopupHtml(log));
-  state.markersById.set(log.id, marker);
-}
-
-function buildPopupHtml(log) {
-  const lines = [
-    `<div class="popup-title">${escapeHtml(log.species || 'Fishing log')}</div>`,
-    log.waterbody ? `<div class="popup-line"><strong>Water:</strong> ${escapeHtml(log.waterbody)}</div>` : '',
-    log.date ? `<div class="popup-line"><strong>Date:</strong> ${escapeHtml(formatDisplayDate(log.date, log.time))}</div>` : '',
-    log.flyLure ? `<div class="popup-line"><strong>Fly / Lure:</strong> ${escapeHtml(log.flyLure)}${log.color ? ` (${escapeHtml(log.color)})` : ''}</div>` : '',
-    log.retrieveSpeed ? `<div class="popup-line"><strong>Retrieve:</strong> ${escapeHtml(log.retrieveSpeed)}</div>` : '',
-    log.result ? `<div class="popup-line"><strong>Result:</strong> ${escapeHtml(log.result)}</div>` : '',
-    log.notes ? `<div class="popup-line">${escapeHtml(log.notes)}</div>` : '',
-  ];
-  return lines.filter(Boolean).join('');
-}
-
-function renderLogs() {
-  els.logList.innerHTML = '';
-  els.logCountBadge.textContent = String(state.logs.length);
-  els.emptyState.classList.toggle('hidden', state.logs.length > 0);
-
-  state.logs.forEach((log) => {
+  entries.forEach(entry => {
     const card = document.createElement('article');
-    card.className = 'log-card';
+    card.className = 'entryCard';
     card.innerHTML = `
-      <h3>${escapeHtml(log.species || 'Fishing log')}</h3>
-      <div class="log-meta">${escapeHtml(formatDisplayDate(log.date, log.time))}${log.waterbody ? ` · ${escapeHtml(log.waterbody)}` : ''}</div>
-      <div class="log-meta">${log.flyLure ? escapeHtml(log.flyLure) : 'No lure/fly entered'}${log.color ? ` · ${escapeHtml(log.color)}` : ''}${log.retrieveSpeed ? ` · ${escapeHtml(log.retrieveSpeed)}` : ''}</div>
-      ${log.notes ? `<div class="log-notes">${escapeHtml(log.notes)}</div>` : ''}
-      <div class="log-actions">
-        <button class="button" type="button" data-action="fly-to" data-log-id="${log.id}">Go to Spot</button>
-        <button class="button" type="button" data-action="delete" data-log-id="${log.id}">Delete</button>
+      <div class="entryTitleRow">
+        <div>
+          <h3 class="entryTitle">${escapeHtml(entry.waterName)} · ${escapeHtml(entry.species)}</h3>
+          <p class="entryMeta">${escapeHtml(formatDate(entry.date))} · ${escapeHtml(entry.timeOfDay)} · ${escapeHtml(entry.flyPattern)} · ${escapeHtml(String(entry.fishSize))}" · Qty ${escapeHtml(String(entry.quantity))}</p>
+        </div>
+        <div class="entryButtons">
+          <button type="button" class="entryBtn locateBtn">Locate</button>
+          <button type="button" class="entryBtn danger deleteBtn">Delete</button>
+        </div>
       </div>
+      <div class="chips"></div>
+      ${entry.notes ? `<p class="entryNotes">${escapeHtml(entry.notes)}</p>` : ''}
     `;
-    els.logList.appendChild(card);
-  });
+    const chips = card.querySelector('.chips');
+    [
+      entry.flyColorPrimary && `${entry.flyColorPrimary}${entry.flyColorSecondary ? '/' + entry.flyColorSecondary : ''}`,
+      entry.flyColorNotes, entry.skyCondition, entry.waterType, entry.depthZone, entry.riverPosition,
+      entry.retrieveSpeed && `${entry.retrieveSpeed} retrieve`,
+      entry.waterTemp != null ? `Water ${entry.waterTemp}°` : '',
+      entry.airTemp != null ? `Air ${entry.airTemp}°` : ''
+    ].filter(Boolean).forEach(text => {
+      const chip = document.createElement('span');
+      chip.className = 'chip';
+      chip.textContent = text;
+      chips.appendChild(chip);
+    });
 
-  els.logList.querySelectorAll('[data-action="fly-to"]').forEach((button) => {
-    button.addEventListener('click', () => flyToLog(button.dataset.logId));
-  });
-
-  els.logList.querySelectorAll('[data-action="delete"]').forEach((button) => {
-    button.addEventListener('click', () => deleteLog(button.dataset.logId));
+    card.querySelector('.locateBtn').addEventListener('click', () => {
+      map.setView([entry.lat, entry.lng], 13);
+      const marker = state.mapMarkers.get(entry.id);
+      if (marker) marker.openPopup();
+      closeSheet(reviewSheet);
+    });
+    card.querySelector('.deleteBtn').addEventListener('click', () => {
+      if (!confirm('Delete this fishing log?')) return;
+      state.entries = state.entries.filter(item => item.id !== entry.id);
+      persistEntries();
+      render();
+      setStatus('Fishing log deleted.');
+    });
+    entryList.appendChild(card);
   });
 }
 
-function flyToLog(logId) {
-  const log = state.logs.find((item) => item.id === logId);
-  const marker = state.markersById.get(logId);
-  if (!log) {
+function setDraftMarker(lat, lng) {
+  latInput.value = lat.toFixed(6);
+  lngInput.value = lng.toFixed(6);
+  if (state.currentDraftMarker) {
+    state.currentDraftMarker.setLatLng([lat, lng]);
     return;
   }
-
-  state.map.flyTo([log.lat, log.lng], Math.max(state.map.getZoom(), 13), { duration: 0.65 });
-  if (marker) {
-    setTimeout(() => marker.openPopup(), 250);
-  }
-}
-
-function deleteLog(logId) {
-  state.logs = state.logs.filter((log) => log.id !== logId);
-  saveLogs();
-
-  const marker = state.markersById.get(logId);
-  if (marker) {
-    state.markerLayer.removeLayer(marker);
-    state.markersById.delete(logId);
-  }
-
-  renderLogs();
-  showToast('Log deleted.');
-}
-
-function fitAllLogs() {
-  if (!state.logs.length) {
-    showToast('No saved logs to show yet.');
-    return;
-  }
-
-  const bounds = L.latLngBounds(state.logs.map((log) => [log.lat, log.lng]));
-  state.map.fitBounds(bounds.pad(0.2));
-}
-
-function loadLogs() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    state.logs = raw ? JSON.parse(raw) : [];
-  } catch (error) {
-    console.error('Could not load saved logs:', error);
-    state.logs = [];
-  }
-
-  state.logs.forEach(addSavedMarker);
-}
-
-function saveLogs() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.logs));
-}
-
-function resetForm() {
-  els.logForm.reset();
-  setDefaultFormValues();
-  els.locationText.textContent = 'Not set';
-  setWaterbodyStatus('No nearby water selected yet.', 'muted');
-}
-
-function setDefaultFormValues() {
-  const now = new Date();
-  const dateInput = els.logForm.querySelector('input[name="date"]');
-  const timeInput = els.logForm.querySelector('input[name="time"]');
-  if (dateInput) {
-    dateInput.value = now.toISOString().slice(0, 10);
-  }
-  if (timeInput) {
-    timeInput.value = now.toTimeString().slice(0, 5);
-  }
-}
-
-
-function setWaterbodyStatus(message, tone = 'muted') {
-  if (!els.waterbodyStatus) {
-    return;
-  }
-  els.waterbodyStatus.textContent = message;
-  els.waterbodyStatus.dataset.tone = tone;
-}
-
-async function startWaterbodyLookup(latlng) {
-  const requestId = ++state.waterLookupRequestId;
-  const initialFieldValue = trim(els.waterbodyInput?.value);
-  setWaterbodyStatus('Trying to identify the nearby named water feature…', 'info');
-
-  try {
-    const feature = await lookupNearbyWaterFeature(latlng.lat, latlng.lng);
-
-    if (requestId !== state.waterLookupRequestId) {
-      return;
-    }
-
-    const currentFieldValue = trim(els.waterbodyInput?.value);
-    const fieldStillAutoFillSafe = !currentFieldValue || currentFieldValue === initialFieldValue;
-
-    if (!feature) {
-      setWaterbodyStatus('No confident nearby named water feature found. Enter it manually if needed.', 'muted');
-      return;
-    }
-
-    if (fieldStillAutoFillSafe && els.waterbodyInput) {
-      els.waterbodyInput.value = feature.name;
-      setWaterbodyStatus(`Auto-filled from nearby map data: ${feature.name}.`, 'success');
-      return;
-    }
-
-    setWaterbodyStatus(`Nearby match found: ${feature.name}. Leaving your typed value alone.`, 'info');
-  } catch (error) {
-    console.warn('Waterbody lookup failed:', error);
-    if (requestId !== state.waterLookupRequestId) {
-      return;
-    }
-    setWaterbodyStatus('Could not reach map data for auto-fill. You can still type the water name manually.', 'warning');
-  }
-}
-
-async function lookupNearbyWaterFeature(lat, lng) {
-  const overpassFeature = await lookupNearbyWaterFeatureOverpass(lat, lng);
-  if (overpassFeature) {
-    return overpassFeature;
-  }
-
-  return lookupNearbyWaterFeatureNominatim(lat, lng);
-}
-
-async function lookupNearbyWaterFeatureOverpass(lat, lng) {
-  const query = buildWaterQuery(lat, lng);
-  const endpoints = [
-    'https://overpass-api.de/api/interpreter',
-    'https://lz4.overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
-  ];
-
-  let lastError = null;
-  for (const endpoint of endpoints) {
-    try {
-      const url = `${endpoint}?data=${encodeURIComponent(query)}`;
-      const response = await fetchWithTimeout(url, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-        },
-      }, 12000);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const payload = await response.json();
-      const best = pickBestWaterFeature(payload?.elements || [], lat, lng);
-      if (best) {
-        return best;
-      }
-    } catch (error) {
-      lastError = error;
-    }
-  }
-
-  if (lastError) {
-    console.warn('Overpass water lookup failed across all mirrors:', lastError);
-  }
-  return null;
-}
-
-function buildWaterQuery(lat, lng) {
-  const radiusMeters = 1400;
-  return `[out:json][timeout:12];
-(
-  node(around:${radiusMeters},${lat},${lng})["waterway"~"^(river|stream|brook|canal)$"]["name"];
-  way(around:${radiusMeters},${lat},${lng})["waterway"~"^(river|stream|brook|canal)$"]["name"];
-  relation(around:${radiusMeters},${lat},${lng})["waterway"~"^(river|stream|brook|canal)$"]["name"];
-  node(around:${radiusMeters},${lat},${lng})["natural"="water"]["name"];
-  way(around:${radiusMeters},${lat},${lng})["natural"="water"]["name"];
-  relation(around:${radiusMeters},${lat},${lng})["natural"="water"]["name"];
-  node(around:${radiusMeters},${lat},${lng})["water"]["name"];
-  way(around:${radiusMeters},${lat},${lng})["water"]["name"];
-  relation(around:${radiusMeters},${lat},${lng})["water"]["name"];
-  way(around:${radiusMeters},${lat},${lng})["landuse"="reservoir"]["name"];
-  relation(around:${radiusMeters},${lat},${lng})["landuse"="reservoir"]["name"];
-);
-out body geom;`;
-}
-
-async function lookupNearbyWaterFeatureNominatim(lat, lng) {
-  const params = new URLSearchParams({
-    format: 'jsonv2',
-    lat: String(lat),
-    lon: String(lng),
-    zoom: '14',
-    layer: 'natural',
-    namedetails: '1',
-    addressdetails: '1',
+  state.currentDraftMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+  state.currentDraftMarker.bindPopup('Draft fishing spot').openPopup();
+  state.currentDraftMarker.on('dragend', () => {
+    const pos = state.currentDraftMarker.getLatLng();
+    latInput.value = pos.lat.toFixed(6);
+    lngInput.value = pos.lng.toFixed(6);
   });
-
-  const url = `https://nominatim.openstreetmap.org/reverse?${params.toString()}`;
-  const response = await fetchWithTimeout(url, {
-    method: 'GET',
-    headers: {
-      Accept: 'application/json',
-    },
-  }, 12000);
-
-  if (!response.ok) {
-    throw new Error(`Nominatim HTTP ${response.status}`);
-  }
-
-  const payload = await response.json();
-  return parseNominatimWaterFeature(payload);
 }
 
-function parseNominatimWaterFeature(payload) {
-  const category = trim(payload?.category).toLowerCase();
-  const type = trim(payload?.type).toLowerCase();
-  const addresstype = trim(payload?.addresstype).toLowerCase();
-  const name = trim(payload?.name)
-    || trim(payload?.namedetails?.name)
-    || trim(payload?.display_name).split(',')[0].trim();
-
-  if (!name) {
-    return null;
+function clearDraftMarker() {
+  latInput.value = '';
+  lngInput.value = '';
+  waterNameInput.value = '';
+  nearbyWaterSelect.innerHTML = '<option value="">Choose one</option>';
+  nearbyWaterWrap.classList.add('hidden');
+  waterLookupStatus.textContent = 'Tap the map to set a spot. Nearby water lookup will run automatically.';
+  if (state.currentDraftMarker) {
+    map.removeLayer(state.currentDraftMarker);
+    state.currentDraftMarker = null;
   }
-
-  const looksWaterish = [category, type, addresstype].some((value) => [
-    'waterway', 'natural', 'river', 'stream', 'brook', 'canal', 'lake', 'reservoir', 'pond', 'bay', 'strait', 'harbour', 'harbor', 'wetland', 'water'
-  ].includes(value));
-
-  if (!looksWaterish) {
-    return null;
-  }
-
-  return {
-    name,
-    distanceMeters: 0,
-    kind: classifyWaterFeature({
-      waterway: ['river', 'stream', 'brook', 'canal'].includes(type) ? type : '',
-      natural: type === 'water' ? 'water' : category === 'natural' ? type : '',
-      water: ['lake', 'reservoir', 'pond', 'bay', 'strait', 'harbour', 'harbor', 'wetland'].includes(type) ? type : '',
-    }),
-  };
+  setStatus('Draft spot cleared.');
 }
 
-function pickBestWaterFeature(elements, lat, lng) {
-  const ranked = elements
-    .map((element) => scoreWaterFeature(element, lat, lng))
-    .filter(Boolean)
-    .sort((a, b) => a.score - b.score);
-
-  if (!ranked.length) {
-    return null;
-  }
-
-  const best = ranked[0];
-  if (best.distanceMeters > 1600) {
-    return null;
-  }
-
-  return {
-    name: best.name,
-    distanceMeters: Math.round(best.distanceMeters),
-    kind: best.kind,
-  };
+function clearFormAfterSave() {
+  logForm.reset();
+  dateInput.value = new Date().toISOString().slice(0, 10);
+  customPatternWrap.classList.add('hidden');
+  flyHelper.textContent = 'Pick a starter fly and I’ll suggest likely colors instead of making you type every damn thing from scratch.';
+  clearDraftMarker();
+  state.addMode = false;
 }
 
-function scoreWaterFeature(element, lat, lng) {
-  const tags = element?.tags || {};
-  const name = trim(tags.name);
-  if (!name) {
-    return null;
-  }
+function openSheet(element) { element.classList.add('visible'); element.setAttribute('aria-hidden', 'false'); }
+function closeSheet(element) { element.classList.remove('visible'); element.setAttribute('aria-hidden', 'true'); }
 
-  const kind = classifyWaterFeature(tags);
-  if (kind === 'ignore') {
-    return null;
-  }
-
-  const distanceMeters = computeFeatureDistanceMeters(element, lat, lng);
-  if (!Number.isFinite(distanceMeters)) {
-    return null;
-  }
-
-  const typeWeight = {
-    river: 0,
-    stream: 15,
-    lake: 40,
-    pond: 65,
-    bay: 55,
-    wetland: 160,
-    harbor: 110,
-    generic: 135,
-  }[kind] ?? 135;
-
-  return {
-    name,
-    kind,
-    distanceMeters,
-    score: distanceMeters + typeWeight,
-  };
+function setStatus(message) {
+  statusBadge.textContent = message;
+  statusBadge.classList.remove('hidden');
+  clearTimeout(setStatus._timer);
+  setStatus._timer = setTimeout(() => statusBadge.classList.add('hidden'), 2600);
 }
 
-function classifyWaterFeature(tags) {
-  const waterway = trim(tags.waterway).toLowerCase();
-  const natural = trim(tags.natural).toLowerCase();
-  const water = trim(tags.water).toLowerCase();
+function persistEntries() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.entries)); }
+function loadEntries() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; } }
 
-  if (['drain', 'ditch', 'dock'].includes(waterway)) {
-    return 'ignore';
+function mostCommon(entries, key) {
+  const counts = new Map();
+  for (const entry of entries) {
+    if (!entry[key]) continue;
+    counts.set(entry[key], (counts.get(entry[key]) || 0) + 1);
   }
-  if (['river', 'canal'].includes(waterway)) {
-    return 'river';
-  }
-  if (['stream', 'brook'].includes(waterway)) {
-    return 'stream';
-  }
-  if (['lake', 'reservoir'].includes(water) || (natural === 'water' && !waterway && ['lake', 'reservoir'].includes(water))) {
-    return 'lake';
-  }
-  if (['pond', 'lagoon', 'basin'].includes(water)) {
-    return 'pond';
-  }
-  if (['bay', 'strait', 'fjord'].includes(water)) {
-    return 'bay';
-  }
-  if (['wetland', 'marsh', 'swamp'].includes(natural) || water === 'wetland') {
-    return 'wetland';
-  }
-  if (water === 'harbor') {
-    return 'harbor';
-  }
-  if (natural === 'water' || waterway || water) {
-    return 'generic';
-  }
-  return 'ignore';
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  return sorted.length ? sorted[0][0] : '';
 }
 
-function computeFeatureDistanceMeters(element, lat, lng) {
-  if (Array.isArray(element?.geometry) && element.geometry.length) {
-    let min = Number.POSITIVE_INFINITY;
-    for (const point of element.geometry) {
-      const d = distanceMeters(lat, lng, point.lat, point.lon);
-      if (d < min) {
-        min = d;
-      }
-    }
-    return min;
-  }
-
-  if (typeof element?.lat === 'number' && typeof element?.lon === 'number') {
-    return distanceMeters(lat, lng, element.lat, element.lon);
-  }
-
-  if (typeof element?.center?.lat === 'number' && typeof element?.center?.lon === 'number') {
-    return distanceMeters(lat, lng, element.center.lat, element.center.lon);
-  }
-
-  return Number.POSITIVE_INFINITY;
+function formatDate(value) {
+  if (!value) return '';
+  const [y, m, d] = value.split('-');
+  return `${m}/${d}/${y}`;
 }
 
-function distanceMeters(lat1, lng1, lat2, lng2) {
-  const toRadians = (value) => value * Math.PI / 180;
-  const earthRadius = 6371000;
-  const dLat = toRadians(lat2 - lat1);
-  const dLng = toRadians(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2
-    + Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * earthRadius * Math.asin(Math.sqrt(a));
-}
-
-function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...options, signal: controller.signal })
-    .finally(() => window.clearTimeout(timer));
-}
-
-function getPickInstructionText() {
-  const isTouchPrimary = window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(hover: hover)').matches;
-  return `${isTouchPrimary ? 'Tap' : 'Click'} the map where you want to place this log. Press Esc or Cancel to back out.`;
-}
-
-function formatLatLng(lat, lng) {
-  return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-}
-
-function formatDisplayDate(date, time) {
-  if (!date) {
-    return 'Undated';
-  }
-  return time ? `${date} at ${time}` : date;
-}
-
-function trim(value) {
-  return String(value || '').trim();
-}
-
-function escapeHtml(text) {
-  return String(text || '')
+function escapeHtml(value) {
+  return String(value)
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
+    .replaceAll("'", '&#039;');
 }
-
-let toastTimer = null;
-function showToast(message) {
-  els.toast.textContent = message;
-  els.toast.classList.remove('hidden');
-  if (toastTimer) {
-    window.clearTimeout(toastTimer);
-  }
-  toastTimer = window.setTimeout(hideToast, 2600);
-}
-
-function hideToast() {
-  els.toast.classList.add('hidden');
-}
-
-init();

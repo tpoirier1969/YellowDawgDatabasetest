@@ -1,177 +1,240 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fishing Log Map</title>
-  <meta name="description" content="Fishing log map with click-first add flow.">
-  <link rel="preconnect" href="https://tile.openstreetmap.org">
-  <link rel="preconnect" href="https://unpkg.com">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1b18">
+  <title>Fish Map Test v4</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div>
-        <div class="eyebrow-row">
-          <span class="app-pill">Fishing Log</span>
-          <span id="versionBadgeTop" class="version-badge">v--</span>
-        </div>
-        <h1>Fishing Log Map</h1>
-        <p class="subhead">Pick the spot first. Then fill in the big form. Much less stupid.</p>
-      </div>
-      <div class="topbar-actions">
-        <button id="addLogBtn" class="button button-primary" type="button">Add Log</button>
-        <button id="fitLogsBtn" class="button" type="button">Show All Logs</button>
-      </div>
-    </header>
+  <div id="map"></div>
 
-    <main class="layout">
-      <section class="map-panel">
-        <div id="map"></div>
+  <div id="topBadge" class="glass">Fish Map Test v4 · Overpass</div>
+  <div id="statusBadge" class="glass hidden">Ready.</div>
 
-        <div class="map-hud">
-          <div class="map-hud__title-row">
-            <div>
-              <div class="map-hud__title">Map controls</div>
-              <div class="map-hud__subtitle">Desktop should not look like a blank damn map anymore.</div>
-            </div>
-            <span id="versionBadgeMap" class="version-badge version-badge--solid">v--</span>
-          </div>
-          <div class="map-hud__actions">
-            <button id="addLogBtnHud" class="button button-primary" type="button">Add Log</button>
-            <button id="fitLogsBtnHud" class="button" type="button">Show All Logs</button>
-          </div>
-        </div>
-
-        <div id="placementPrompt" class="placement-prompt hidden" role="dialog" aria-live="polite" aria-label="Place log prompt">
-          <div class="placement-prompt__title">Place a new log</div>
-          <p id="placementPromptText">Click the map where you want to place this log.</p>
-          <div class="placement-prompt__actions">
-            <button id="cancelPlacementBtn" class="button" type="button">Cancel</button>
-          </div>
-        </div>
-
-        <div id="toast" class="toast hidden" aria-live="polite"></div>
-      </section>
-
-      <aside class="sidebar">
-        <div class="panel">
-          <div class="panel-title-row">
-            <h2>Recent Logs</h2>
-            <span id="logCountBadge" class="badge">0</span>
-          </div>
-          <div class="sidebar-help">Click <strong>Add Log</strong>, place the point, then the full form opens.</div>
-          <div id="emptyState" class="empty-state">No logs yet. Hit <strong>Add Log</strong> and then click the map.</div>
-          <div id="logList" class="log-list"></div>
-        </div>
-      </aside>
-    </main>
+  <div id="floatingActions">
+    <button id="addLogBtn" class="pill primary">Add Log</button>
+    <button id="reviewBtn" class="pill">Review</button>
+    <button id="filterBtn" class="pill">Filters</button>
   </div>
 
-  <div id="formModal" class="modal hidden" aria-hidden="true">
-    <div class="modal-backdrop" data-close-modal="true"></div>
-    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="logFormTitle">
-      <div class="modal-header">
-        <div>
-          <h2 id="logFormTitle">Add Fishing Log</h2>
-          <p id="logFormIntro" class="muted">Spot locked. Now add the details.</p>
-        </div>
-        <button id="closeFormBtn" class="icon-button" type="button" aria-label="Close form">×</button>
+  <div id="logSheet" class="sheet" aria-hidden="true">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div>
+        <h2>New Fishing Log</h2>
+        <p id="sheetSubcopy">Tap the map first. This build uses Overpass to suggest nearby water names.</p>
+      </div>
+      <button id="closeLogSheetBtn" class="sheetClose" type="button">Close</button>
+    </div>
+
+    <form id="logForm">
+      <div class="helper-box" id="waterLookupStatus">Tap the map to set a spot. Nearby water lookup will run automatically.</div>
+
+      <div class="form-grid two">
+        <label>Date
+          <input type="date" id="date" name="date" required>
+        </label>
+        <label>Time of Day
+          <select id="timeOfDay" name="timeOfDay" required>
+            <option>Dawn</option><option>Morning</option><option>Midday</option>
+            <option>Afternoon</option><option>Dusk</option><option>Evening</option>
+          </select>
+        </label>
       </div>
 
-      <form id="logForm" class="log-form">
-        <div class="field-grid field-grid--two">
-          <label>
-            <span>Date</span>
-            <input name="date" type="date" required>
-          </label>
-          <label>
-            <span>Time</span>
-            <input name="time" type="time">
-          </label>
-        </div>
-
-        <div class="field-grid field-grid--two">
-          <label>
-            <span>Species</span>
-            <input name="species" type="text" placeholder="Brown trout, steelhead, smallmouth..." required>
-          </label>
-          <label>
-            <span>Water</span>
-            <input id="waterbodyInput" name="waterbody" type="text" placeholder="River, lake, creek, bay...">
-            <div id="waterbodyStatus" class="field-hint" data-tone="muted">No nearby water selected yet.</div>
-          </label>
-        </div>
-
-        <div class="field-grid field-grid--two">
-          <label>
-            <span>Fly / Lure</span>
-            <input name="flyLure" type="text" placeholder="Woolly Bugger, spinner, crawler...">
-          </label>
-          <label>
-            <span>Color</span>
-            <input name="color" type="text" placeholder="Olive, black, chartreuse...">
-          </label>
-        </div>
-
-        <div class="field-grid field-grid--two">
-          <label>
-            <span>Retrieve speed</span>
-            <select name="retrieveSpeed">
-              <option value="">Select one</option>
-              <option>Still</option>
-              <option>Slow</option>
-              <option>Medium</option>
-              <option>Fast</option>
-            </select>
-          </label>
-          <label>
-            <span>Result</span>
-            <select name="result">
-              <option value="">Select one</option>
-              <option>Caught</option>
-              <option>Missed strike</option>
-              <option>Follow</option>
-              <option>No action</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="field-grid field-grid--two">
-          <label>
-            <span>Air temp</span>
-            <input name="airTemp" type="text" placeholder="52°F">
-          </label>
-          <label>
-            <span>Water temp</span>
-            <input name="waterTemp" type="text" placeholder="47°F">
-          </label>
-        </div>
-
-        <label>
-          <span>Notes</span>
-          <textarea name="notes" rows="6" placeholder="Flow, weather, hatch, what worked, what didn't..."></textarea>
+      <div class="form-grid two">
+        <label>Water Name
+          <input type="text" id="waterName" name="waterName" placeholder="Will auto-fill if Overpass finds a good match" required>
         </label>
+        <label id="nearbyWaterWrap" class="hidden">Nearby Water Choices
+          <select id="nearbyWaterSelect" name="nearbyWaterSelect">
+            <option value="">Choose one</option>
+          </select>
+        </label>
+      </div>
 
-        <div class="location-strip">
-          <div>
-            <div class="location-strip__label">Map location</div>
-            <div id="locationText" class="location-strip__value">Not set</div>
-          </div>
-          <button id="repickLocationBtn" class="button" type="button">Pick New Spot</button>
-        </div>
+      <div class="form-grid two">
+        <label>Fly Pattern
+          <select id="flyPatternSelect" name="flyPatternSelect">
+            <option value="">Choose a starter fly</option>
+            <option value="_custom">Custom / type your own</option>
+          </select>
+        </label>
+        <label>Fly Category
+          <select id="flyCategory" name="flyCategory">
+            <option value="">Choose one</option>
+            <option>Dry</option><option>Nymph</option><option>Streamer</option><option>Emerger</option><option>Wet Fly</option><option>Terrestrial</option><option>Other</option>
+          </select>
+        </label>
+      </div>
 
-        <div class="form-actions">
-          <button id="cancelFormBtn" class="button" type="button">Cancel</button>
-          <button class="button button-primary" type="submit">Save Log</button>
-        </div>
-      </form>
-    </section>
+      <label id="customPatternWrap" class="hidden">Custom Fly Pattern
+        <input type="text" id="customFlyPattern" name="customFlyPattern" placeholder="Type custom fly name">
+      </label>
+
+      <div class="helper-box" id="flyHelper">Pick a starter fly and I’ll suggest likely colors instead of making you type every damn thing from scratch.</div>
+
+      <div class="form-grid three">
+        <label>Primary Color
+          <select id="flyColorPrimary" name="flyColorPrimary" required>
+            <option value="">Choose one</option>
+            <option>Black</option><option>Brown</option><option>Olive</option><option>Green</option><option>Tan</option><option>Cream</option><option>Yellow</option><option>Orange</option><option>Red</option><option>Pink</option><option>Purple</option><option>White</option><option>Gray</option><option>Silver</option><option>Gold</option><option>Peacock</option><option>Chartreuse</option><option>Copper</option><option>Pearl</option><option>Flash</option><option>Dun</option><option>Cinnamon</option>
+          </select>
+        </label>
+        <label>Secondary Color
+          <select id="flyColorSecondary" name="flyColorSecondary">
+            <option value="">None</option>
+            <option>Black</option><option>Brown</option><option>Olive</option><option>Green</option><option>Tan</option><option>Cream</option><option>Yellow</option><option>Orange</option><option>Red</option><option>Pink</option><option>Purple</option><option>White</option><option>Gray</option><option>Silver</option><option>Gold</option><option>Peacock</option><option>Chartreuse</option><option>Copper</option><option>Pearl</option><option>Flash</option><option>Dun</option><option>Cinnamon</option>
+          </select>
+        </label>
+        <label>Fly Color Notes
+          <input type="text" id="flyColorNotes" name="flyColorNotes" placeholder="Red hotspot, pearl flash, barred legs...">
+        </label>
+      </div>
+
+      <div class="form-grid three">
+        <label>Species
+          <select id="species" name="species" required>
+            <option value="">Choose one</option>
+            <option>Brook Trout</option><option>Brown Trout</option><option>Rainbow Trout</option>
+          </select>
+        </label>
+        <label>Fish Size (inches)
+          <input type="number" id="fishSize" name="fishSize" min="0" step="0.25" required>
+        </label>
+        <label>Quantity
+          <input type="number" id="quantity" name="quantity" min="1" step="1" value="1" required>
+        </label>
+      </div>
+
+      <div class="form-grid three">
+        <label>Sky Condition
+          <select id="skyCondition" name="skyCondition" required>
+            <option value="">Choose one</option>
+            <option>Sunny</option><option>Cloudy</option><option>Overcast</option>
+            <option>Rain</option><option>Drizzle</option><option>Stormy</option>
+          </select>
+        </label>
+        <label>Air Temp (°F)
+          <input type="number" id="airTemp" name="airTemp">
+        </label>
+        <label>Water Temp (°F)
+          <input type="number" id="waterTemp" name="waterTemp">
+        </label>
+      </div>
+
+      <div class="form-grid four">
+        <label>Water Type
+          <select id="waterType" name="waterType" required>
+            <option value="">Choose one</option>
+            <option>Pool</option><option>Fast Water</option><option>Riffles</option>
+          </select>
+        </label>
+        <label>Depth Zone
+          <select id="depthZone" name="depthZone" required>
+            <option value="">Choose one</option>
+            <option>Surface</option><option>Mid-Column</option><option>Bottom</option>
+          </select>
+        </label>
+        <label>River Position
+          <select id="riverPosition" name="riverPosition" required>
+            <option value="">Choose one</option>
+            <option>Near Bank</option><option>Mid-River</option>
+          </select>
+        </label>
+        <label>Retrieve Speed
+          <select id="retrieveSpeed" name="retrieveSpeed" required>
+            <option value="">Choose one</option>
+            <option>Still</option><option>Slow</option><option>Medium</option><option>Fast</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="form-grid two">
+        <label>Latitude
+          <input type="number" id="lat" name="lat" step="0.000001" placeholder="Tap map">
+        </label>
+        <label>Longitude
+          <input type="number" id="lng" name="lng" step="0.000001" placeholder="Tap map">
+        </label>
+      </div>
+
+      <label>Notes
+        <textarea id="notes" name="notes" rows="3" placeholder="Flows, wind, fish behavior, lucky lies, bad decisions..."></textarea>
+      </label>
+
+      <div class="button-row">
+        <button type="button" id="clearSpotBtn" class="secondaryBtn">Clear Spot</button>
+        <button type="submit" id="saveBtn" class="primaryBtn">Save Log</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="reviewSheet" class="sheet" aria-hidden="true">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div>
+        <h2>Review Logs</h2>
+        <p id="reviewSubcopy">Saved logs stay tucked away until you actually want them.</p>
+      </div>
+      <button id="closeReviewSheetBtn" class="sheetClose" type="button">Close</button>
+    </div>
+    <div id="statsGrid" class="statsGrid"></div>
+    <div id="entryCount" class="entryCount"></div>
+    <div id="entryList" class="entryList"></div>
+  </div>
+
+  <div id="filterSheet" class="sheet" aria-hidden="true">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div>
+        <h2>Filters</h2>
+        <p>Trim the map down to what matters.</p>
+      </div>
+      <button id="closeFilterSheetBtn" class="sheetClose" type="button">Close</button>
+    </div>
+
+    <div class="form-grid two">
+      <label>Species
+        <select id="filterSpecies">
+          <option value="">All</option>
+          <option>Brook Trout</option><option>Brown Trout</option><option>Rainbow Trout</option>
+        </select>
+      </label>
+      <label>Primary Color
+        <select id="filterColor">
+          <option value="">All</option>
+          <option>Black</option><option>Brown</option><option>Olive</option><option>Green</option><option>Tan</option><option>Cream</option><option>Yellow</option><option>Orange</option><option>Red</option><option>Pink</option><option>Purple</option><option>White</option><option>Gray</option><option>Silver</option><option>Gold</option><option>Peacock</option><option>Chartreuse</option><option>Copper</option><option>Pearl</option><option>Flash</option><option>Dun</option><option>Cinnamon</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="form-grid two">
+      <label>Sky Condition
+        <select id="filterSky">
+          <option value="">All</option>
+          <option>Sunny</option><option>Cloudy</option><option>Overcast</option>
+          <option>Rain</option><option>Drizzle</option><option>Stormy</option>
+        </select>
+      </label>
+      <label>Retrieve Speed
+        <select id="filterRetrieveSpeed">
+          <option value="">All</option>
+          <option>Still</option><option>Slow</option><option>Medium</option><option>Fast</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="button-row">
+      <button id="resetFiltersBtn" type="button" class="secondaryBtn">Reset Filters</button>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="fly-reference.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
