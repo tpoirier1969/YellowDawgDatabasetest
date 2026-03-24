@@ -1,8 +1,8 @@
-window.SUPABASE_CONFIG = {
+window.FISHING_SUPABASE_CONFIG = {
   url: '',
   anonKey: '',
-  table: 'fish_logs',
-  appId: 'fish-map-test',
+  table: 'fishing_catch_logs',
+  appId: 'fishing_logbook_shared',
   autoSyncOnLoad: true,
   autoSyncOnSave: true
 };

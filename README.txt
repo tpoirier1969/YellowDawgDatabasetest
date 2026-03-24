@@ -1,6 +1,7 @@
-Fish Map Test v10.7
+Fishing Logbook v10.8
 
 What changed
+- renamed storage and cloud identifiers to fishing-specific names before shared-db rollout
 - started the shared-database path with Supabase-ready cloud sync
 - logs still save locally first, so poor signal or offline use does not kill the app
 - added a Cloud button, cloud status badge, and review-sheet cloud summary
@@ -20,5 +21,10 @@ Shared database setup
 Notes
 - this starter uses local-first storage plus manual/automatic cloud sync
 - the included SQL policies are intentionally open so every app user can read and write shared logs
+- if you already created the older generic fish_logs table, this build will use the new fishing_catch_logs table name instead; migrate or recreate before you start syncing real shared data
 - if you want private users later, the next step is auth and tighter RLS policies
 - device location still requires browser permission and usually works best on HTTPS or localhost
+
+- Supabase config now uses window.FISHING_SUPABASE_CONFIG instead of a generic global object
+- shared table/app identifiers now default to fishing_catch_logs and fishing_logbook_shared
+- browser storage now uses fishingLogbook.* keys with a fallback migration from older local keys

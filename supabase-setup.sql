@@ -1,9 +1,9 @@
--- Fish Map Test shared database starter
+-- Fishing Logbook shared database starter
 -- Run this in your Supabase SQL Editor.
 
-create table if not exists public.fish_logs (
+create table if not exists public.fishing_catch_logs (
   id text primary key,
-  app_id text not null default 'fish-map-test',
+  app_id text not null default 'fishing_logbook_shared',
   owner_name text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -38,36 +38,36 @@ create table if not exists public.fish_logs (
   marker_lng double precision not null
 );
 
-create index if not exists fish_logs_app_id_created_at_idx on public.fish_logs (app_id, created_at desc);
+create index if not exists fishing_catch_logs_app_id_created_at_idx on public.fishing_catch_logs (app_id, created_at desc);
 
-alter table public.fish_logs enable row level security;
+alter table public.fishing_catch_logs enable row level security;
 
-drop policy if exists fish_logs_public_read on public.fish_logs;
-create policy fish_logs_public_read
-  on public.fish_logs
+drop policy if exists fishing_catch_logs_public_read on public.fishing_catch_logs;
+create policy fishing_catch_logs_public_read
+  on public.fishing_catch_logs
   for select
   using (true);
 
-drop policy if exists fish_logs_public_insert on public.fish_logs;
-create policy fish_logs_public_insert
-  on public.fish_logs
+drop policy if exists fishing_catch_logs_public_insert on public.fishing_catch_logs;
+create policy fishing_catch_logs_public_insert
+  on public.fishing_catch_logs
   for insert
   with check (true);
 
-drop policy if exists fish_logs_public_update on public.fish_logs;
-create policy fish_logs_public_update
-  on public.fish_logs
+drop policy if exists fishing_catch_logs_public_update on public.fishing_catch_logs;
+create policy fishing_catch_logs_public_update
+  on public.fishing_catch_logs
   for update
   using (true)
   with check (true);
 
-drop policy if exists fish_logs_public_delete on public.fish_logs;
-create policy fish_logs_public_delete
-  on public.fish_logs
+drop policy if exists fishing_catch_logs_public_delete on public.fishing_catch_logs;
+create policy fishing_catch_logs_public_delete
+  on public.fishing_catch_logs
   for delete
   using (true);
 
-create or replace function public.set_fish_logs_updated_at()
+create or replace function public.fishing_set_catch_logs_updated_at()
 returns trigger
 language plpgsql
 as $$
@@ -77,8 +77,8 @@ begin
 end;
 $$;
 
-drop trigger if exists fish_logs_set_updated_at on public.fish_logs;
-create trigger fish_logs_set_updated_at
-before update on public.fish_logs
+drop trigger if exists fishing_catch_logs_set_updated_at on public.fishing_catch_logs;
+create trigger fishing_catch_logs_set_updated_at
+before update on public.fishing_catch_logs
 for each row
-execute function public.set_fish_logs_updated_at();
+execute function public.fishing_set_catch_logs_updated_at();

@@ -1,13 +1,14 @@
-const APP_VERSION='v10.7';
-const STORAGE_KEY='fishMapTestV10.entries';
+const APP_VERSION='v10.8';
+const FISHING_STORAGE_KEY='fishingLogbook.entries';
+const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
 const OVERPASS_URL='https://overpass-api.de/api/interpreter';
 const OVERPASS_RADIUS_METERS=1200;
 const NOMINATIM_REVERSE_URL='https://nominatim.openstreetmap.org/reverse';
 const DEFAULT_CENTER=[46.62,-87.67];
 const DEFAULT_ZOOM=9;
 const DEFAULT_LOG_ZOOM=14;
-const CURRENT_ANGLER=localStorage.getItem('fishMap.currentAngler')||'Tod';
-const DEFAULT_SUPABASE_CONFIG={url:'',anonKey:'',table:'fish_logs',appId:'fish-map-test',autoSyncOnLoad:true,autoSyncOnSave:true};
+const CURRENT_ANGLER=localStorage.getItem('fishingLogbook.currentAngler')||localStorage.getItem('fishMap.currentAngler')||'Tod';
+const DEFAULT_FISHING_SUPABASE_CONFIG={url:'',anonKey:'',table:'fishing_catch_logs',appId:'fishing_logbook_shared',autoSyncOnLoad:true,autoSyncOnSave:true};
 const FLY_TYPES=['Dry','Nymph','Streamer','Emerger','Wet Fly','Terrestrial','Other'];
 const LURE_TYPES=['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'];
 const LIVE_BAIT_TYPES=['Minnow','Crawler','Worm','Cut Bait','Spawn','Waxworm / Wiggler','Leech','Grasshopper','Other'];
@@ -34,7 +35,7 @@ const state={
   addMode:false,
   pendingLocationRequestId:0,
   filters:{dateFrom:'',dateTo:'',species:'',color:'',sky:'',retrieveSpeed:''},
-  cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_SUPABASE_CONFIG.table,appId:DEFAULT_SUPABASE_CONFIG.appId,autoSyncOnSave:true}
+  cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true}
 };
 
 const $=id=>document.getElementById(id);
@@ -45,20 +46,20 @@ map.addLayer(state.markerCluster);
 
 function setOptions(select, values, placeholder='Choose one'){
 
-function getSupabaseConfig(){
-  const cfg=(window.SUPABASE_CONFIG && typeof window.SUPABASE_CONFIG==='object') ? window.SUPABASE_CONFIG : {};
+function getFishingSupabaseConfig(){
+  const cfg=(window.FISHING_SUPABASE_CONFIG && typeof window.FISHING_SUPABASE_CONFIG==='object') ? window.FISHING_SUPABASE_CONFIG : {};
   return {
     url:String(cfg.url || '').trim(),
     anonKey:String(cfg.anonKey || cfg.publishableKey || '').trim(),
-    table:String(cfg.table || DEFAULT_SUPABASE_CONFIG.table).trim() || DEFAULT_SUPABASE_CONFIG.table,
-    appId:String(cfg.appId || DEFAULT_SUPABASE_CONFIG.appId).trim() || DEFAULT_SUPABASE_CONFIG.appId,
+    table:String(cfg.table || DEFAULT_FISHING_SUPABASE_CONFIG.table).trim() || DEFAULT_FISHING_SUPABASE_CONFIG.table,
+    appId:String(cfg.appId || DEFAULT_FISHING_SUPABASE_CONFIG.appId).trim() || DEFAULT_FISHING_SUPABASE_CONFIG.appId,
     autoSyncOnLoad:cfg.autoSyncOnLoad!==false,
     autoSyncOnSave:cfg.autoSyncOnSave!==false
   };
 }
 
 function cloudIsConfigured(){
-  const cfg=getSupabaseConfig();
+  const cfg=getFishingSupabaseConfig();
   return !!(cfg.url && cfg.anonKey && window.supabase && typeof window.supabase.createClient==='function');
 }
 
@@ -223,7 +224,7 @@ function cloudRowToEntry(row){
 }
 
 async function initCloud({syncOnLoad=true}={}){
-  const cfg=getSupabaseConfig();
+  const cfg=getFishingSupabaseConfig();
   state.cloud.configured=cloudIsConfigured();
   state.cloud.table=cfg.table;
   state.cloud.appId=cfg.appId;
@@ -841,7 +842,7 @@ function getSafeRandomId(){
   try{
     if(typeof crypto!=='undefined' && crypto?.randomUUID) return crypto.randomUUID();
   }catch{}
-  return `log-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+  return `fishinglog-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
 }
 
 function getLabelTextForControl(control){
@@ -1071,12 +1072,23 @@ function setStatus(message, duration=2600){
 }
 
 function persistEntries(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeEntryArray(state.entries)));
+  localStorage.setItem(FISHING_STORAGE_KEY, JSON.stringify(normalizeEntryArray(state.entries)));
 }
 
 function loadEntries(){
   try{
-    return normalizeEntryArray(JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'));
+    const direct=localStorage.getItem(FISHING_STORAGE_KEY);
+    if(direct) return normalizeEntryArray(JSON.parse(direct));
+    for(const legacyKey of FISHING_LEGACY_STORAGE_KEYS){
+      const legacyValue=localStorage.getItem(legacyKey);
+      if(!legacyValue) continue;
+      const migratedEntries=normalizeEntryArray(JSON.parse(legacyValue));
+      if(migratedEntries.length){
+        localStorage.setItem(FISHING_STORAGE_KEY, JSON.stringify(migratedEntries));
+      }
+      return migratedEntries;
+    }
+    return [];
   }catch{
     return [];
   }
