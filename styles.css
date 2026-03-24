@@ -3,6 +3,7 @@
 #map { position:fixed; inset:0; z-index:1; background:#17362f; }
 .glass { position:fixed; z-index:1000; background:var(--glass); color:var(--text); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); box-shadow:var(--shadow); border:1px solid var(--border); }
 #topBadge { top:var(--safe-top); left:50%; transform:translateX(-50%); padding:10px 15px; border-radius:999px; font-weight:800; }
+#cloudBadge { top:var(--safe-top); right:12px; padding:10px 12px; border-radius:12px; font-size:12px; max-width:min(48vw, 260px); }
 #statusBadge { left:12px; bottom:calc(var(--safe-bottom) + 72px); padding:10px 12px; border-radius:12px; font-size:13px; max-width:min(82vw, 460px); } #statusBadge.hidden { display:none; }
 #floatingActions { position:fixed; z-index:1000; right:12px; bottom:var(--safe-bottom); display:flex; flex-direction:column; gap:10px; }
 .pill,.primaryBtn,.secondaryBtn,.sheetClose,.entryBtn { min-height:46px; padding:0 16px; border-radius:12px; border:1px solid var(--border); font:inherit; cursor:pointer; }
@@ -37,4 +38,4 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 .entryTitleRow { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; } .entryTitle { margin:0 0 6px; font-size:17px; } .entryMeta { margin:0 0 10px; color:var(--muted); font-size:13px; line-height:1.4; }
 .entryButtons { display:flex; gap:8px; } .entryBtn.danger { background:rgba(153,36,36,.3); } .chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; } .chip { display:inline-flex; align-items:center; min-height:28px; padding:0 10px; border-radius:999px; background:rgba(255,255,255,.06); border:1px solid var(--border); font-size:12px; } .entryNotes { margin:0; white-space:pre-wrap; line-height:1.4; }
 @media (max-width:900px){ .statsGrid{grid-template-columns:repeat(2,minmax(0,1fr));} .form-grid.four{grid-template-columns:repeat(2,minmax(0,1fr));} }
-@media (max-width:680px){ .form-grid.two,.form-grid.three,.form-grid.four,.statsGrid{grid-template-columns:1fr;} #floatingActions{left:12px; right:12px; bottom:var(--safe-bottom);} .pill{width:100%;} #statusBadge{left:12px; right:12px; max-width:none; bottom:calc(var(--safe-bottom) + 180px);} .entryTitleRow{flex-direction:column;} .entryButtons{width:100%; flex-wrap:wrap;} }
+@media (max-width:680px){ .form-grid.two,.form-grid.three,.form-grid.four,.statsGrid{grid-template-columns:1fr;} #floatingActions{left:12px; right:12px; bottom:var(--safe-bottom);} .pill{width:100%;} #statusBadge{left:12px; right:12px; max-width:none; bottom:calc(var(--safe-bottom) + 236px);} #cloudBadge{left:12px; right:12px; top:calc(var(--safe-top) + 52px); max-width:none;} .entryTitleRow{flex-direction:column;} .entryButtons{width:100%; flex-wrap:wrap;} }

@@ -1,19 +1,29 @@
-const APP_VERSION='v10.5';
+const APP_VERSION='v10.7';
 const STORAGE_KEY='fishMapTestV10.entries';
 const OVERPASS_URL='https://overpass-api.de/api/interpreter';
 const OVERPASS_RADIUS_METERS=1200;
+const NOMINATIM_REVERSE_URL='https://nominatim.openstreetmap.org/reverse';
 const DEFAULT_CENTER=[46.62,-87.67];
 const DEFAULT_ZOOM=9;
 const DEFAULT_LOG_ZOOM=14;
 const CURRENT_ANGLER=localStorage.getItem('fishMap.currentAngler')||'Tod';
+const DEFAULT_SUPABASE_CONFIG={url:'',anonKey:'',table:'fish_logs',appId:'fish-map-test',autoSyncOnLoad:true,autoSyncOnSave:true};
 const FLY_TYPES=['Dry','Nymph','Streamer','Emerger','Wet Fly','Terrestrial','Other'];
 const LURE_TYPES=['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'];
-const LIVE_BAIT_TYPES=['Minnow','Crawler','Worm','Spawn','Waxworm / Wiggler','Leech','Grasshopper','Other'];
+const LIVE_BAIT_TYPES=['Minnow','Crawler','Worm','Cut Bait','Spawn','Waxworm / Wiggler','Leech','Grasshopper','Other'];
 const MIDWEST_FISH_SPECIES=[
   'Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bullhead','Burbot','Channel Catfish',
   'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Flathead Catfish','Freshwater Drum','Gar','Hybrid Striped Bass',
   'Lake Sturgeon','Lake Trout','Lake Whitefish','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed',
   'Rainbow Trout / Steelhead','Rock Bass','Sauger','Smallmouth Bass','Splake','Sunfish','Walleye','White Bass','White Crappie','Yellow Perch'
+];
+
+const GREAT_LAKE_FALLBACKS=[
+  {name:'Lake Superior', minLat:46.20, maxLat:48.45, minLng:-92.35, maxLng:-84.20},
+  {name:'Lake Michigan', minLat:41.55, maxLat:46.20, minLng:-88.40, maxLng:-85.00},
+  {name:'Lake Huron', minLat:43.00, maxLat:46.60, minLng:-84.95, maxLng:-79.55},
+  {name:'Lake Erie', minLat:41.20, maxLat:42.95, minLng:-83.65, maxLng:-78.75},
+  {name:'Lake Ontario', minLat:43.10, maxLat:44.55, minLng:-79.95, maxLng:-76.05}
 ];
 
 const state={
@@ -23,7 +33,8 @@ const state={
   currentDraftMeta:{source:'',accuracy:null},
   addMode:false,
   pendingLocationRequestId:0,
-  filters:{dateFrom:'',dateTo:'',species:'',color:'',sky:'',retrieveSpeed:''}
+  filters:{dateFrom:'',dateTo:'',species:'',color:'',sky:'',retrieveSpeed:''},
+  cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_SUPABASE_CONFIG.table,appId:DEFAULT_SUPABASE_CONFIG.appId,autoSyncOnSave:true}
 };
 
 const $=id=>document.getElementById(id);
@@ -33,6 +44,308 @@ state.markerCluster=L.markerClusterGroup();
 map.addLayer(state.markerCluster);
 
 function setOptions(select, values, placeholder='Choose one'){
+
+function getSupabaseConfig(){
+  const cfg=(window.SUPABASE_CONFIG && typeof window.SUPABASE_CONFIG==='object') ? window.SUPABASE_CONFIG : {};
+  return {
+    url:String(cfg.url || '').trim(),
+    anonKey:String(cfg.anonKey || cfg.publishableKey || '').trim(),
+    table:String(cfg.table || DEFAULT_SUPABASE_CONFIG.table).trim() || DEFAULT_SUPABASE_CONFIG.table,
+    appId:String(cfg.appId || DEFAULT_SUPABASE_CONFIG.appId).trim() || DEFAULT_SUPABASE_CONFIG.appId,
+    autoSyncOnLoad:cfg.autoSyncOnLoad!==false,
+    autoSyncOnSave:cfg.autoSyncOnSave!==false
+  };
+}
+
+function cloudIsConfigured(){
+  const cfg=getSupabaseConfig();
+  return !!(cfg.url && cfg.anonKey && window.supabase && typeof window.supabase.createClient==='function');
+}
+
+function formatCloudSyncTime(value=''){
+  if(!value) return '';
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString();
+}
+
+function updateCloudUi(){
+  const cloudBtn=$('cloudBtn');
+  const cloudBadge=$('cloudBadge');
+  const cloudSummary=$('cloudSummary');
+  let badgeText='Local only';
+  let buttonText='Cloud Setup';
+  let summary='Local-only mode. Add Supabase details in supabase-config.js to share logs across devices.';
+
+  if(state.cloud.syncing){
+    badgeText='Cloud syncing…';
+    buttonText='Syncing…';
+    summary='Syncing local and shared logs now.';
+  }else if(state.cloud.ready){
+    badgeText='Cloud connected';
+    buttonText='Sync Cloud';
+    summary=`Shared database connected. ${state.cloud.lastSyncAt ? 'Last sync: ' + formatCloudSyncTime(state.cloud.lastSyncAt) + '.' : 'Ready to sync.'}`;
+  }else if(state.cloud.configured){
+    badgeText='Cloud error';
+    buttonText='Retry Cloud';
+    summary=`Cloud is configured but not connected${state.cloud.lastError ? ': ' + state.cloud.lastError : '.'}`;
+  }
+
+  if(cloudBtn){
+    cloudBtn.textContent=buttonText;
+    cloudBtn.disabled=state.cloud.syncing;
+  }
+  if(cloudBadge) cloudBadge.textContent=badgeText;
+  if(cloudSummary) cloudSummary.textContent=summary;
+  const reviewSubcopy=$('reviewSubcopy');
+  if(reviewSubcopy){
+    reviewSubcopy.textContent=state.cloud.ready ? 'Shared logs are available across devices when cloud sync is on.' : 'Saved logs stay tucked away until you want them. Cloud sync is optional.';
+  }
+}
+
+function normalizeEntry(entry={}){
+  const marker=entry.marker && typeof entry.marker==='object' ? entry.marker : {};
+  return {
+    ...entry,
+    id:String(entry.id || getSafeRandomId()),
+    owner:String(entry.owner || CURRENT_ANGLER),
+    createdAt:entry.createdAt || new Date().toISOString(),
+    waypointName:entry.waypointName || '',
+    baitSubtype:entry.baitSubtype || '',
+    additionalColor:entry.additionalColor || '',
+    baitSize:entry.baitSize || '',
+    weight:entry.weight || '',
+    quantity:Number(entry.quantity || 1),
+    airTemp:entry.airTemp==='' || entry.airTemp==null ? null : Number(entry.airTemp),
+    waterTemp:entry.waterTemp==='' || entry.waterTemp==null ? null : Number(entry.waterTemp),
+    hatches:entry.hatches || '',
+    notes:entry.notes || '',
+    locationSource:entry.locationSource || '',
+    markerAccuracy:entry.markerAccuracy==='' || entry.markerAccuracy==null ? null : Number(entry.markerAccuracy),
+    marker:{lat:Number(marker.lat || 0), lng:Number(marker.lng || 0)}
+  };
+}
+
+function normalizeEntryArray(entries=[]){
+  if(!Array.isArray(entries)) return [];
+  return entries.map(normalizeEntry).filter(entry=>Number.isFinite(entry.marker.lat) && Number.isFinite(entry.marker.lng)).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+}
+
+function mergeEntries(localEntries=[], remoteEntries=[]){
+  const mapById=new Map();
+  [...localEntries, ...remoteEntries].forEach(raw=>{
+    const entry=normalizeEntry(raw);
+    const prior=mapById.get(entry.id);
+    if(!prior){
+      mapById.set(entry.id, entry);
+      return;
+    }
+    const priorStamp=Date.parse(prior.createdAt || 0) || 0;
+    const entryStamp=Date.parse(entry.createdAt || 0) || 0;
+    if(entryStamp>=priorStamp) mapById.set(entry.id, entry);
+  });
+  return [...mapById.values()].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+}
+
+function entryToCloudRow(entry){
+  return {
+    id:entry.id,
+    app_id:state.cloud.appId,
+    owner_name:entry.owner || CURRENT_ANGLER,
+    created_at:entry.createdAt,
+    log_date:entry.date,
+    time_of_day:entry.timeOfDay,
+    water_name:entry.waterName,
+    waypoint_name:entry.waypointName || null,
+    bait_type:entry.baitType,
+    bait_subtype:entry.baitSubtype || null,
+    bait_name:entry.baitName,
+    main_color:entry.mainColor || null,
+    additional_color:entry.additionalColor || null,
+    bait_size:entry.baitSize || null,
+    species:entry.species,
+    size_inches:entry.sizeInches,
+    weight:entry.weight || null,
+    quantity:entry.quantity || 1,
+    air_temp:entry.airTemp,
+    water_temp:entry.waterTemp,
+    sky_condition:entry.skyCondition || null,
+    water_condition:entry.waterCondition || null,
+    water_clarity:entry.waterClarity || null,
+    depth_zone:entry.depthZone || null,
+    retrieve_speed:entry.retrieveSpeed || null,
+    presentation_style:entry.presentationStyle || null,
+    structure_type:entry.structureType || null,
+    hatches:entry.hatches || null,
+    notes:entry.notes || null,
+    location_source:entry.locationSource || null,
+    marker_accuracy:entry.markerAccuracy,
+    marker_lat:entry.marker.lat,
+    marker_lng:entry.marker.lng,
+    updated_at:new Date().toISOString()
+  };
+}
+
+function cloudRowToEntry(row){
+  return normalizeEntry({
+    id:row.id,
+    owner:row.owner_name || CURRENT_ANGLER,
+    createdAt:row.created_at,
+    date:row.log_date,
+    timeOfDay:row.time_of_day,
+    waterName:row.water_name,
+    waypointName:row.waypoint_name || '',
+    baitType:row.bait_type,
+    baitSubtype:row.bait_subtype || '',
+    baitName:row.bait_name,
+    mainColor:row.main_color || '',
+    additionalColor:row.additional_color || '',
+    baitSize:row.bait_size || '',
+    species:row.species,
+    sizeInches:Number(row.size_inches || 0),
+    weight:row.weight || '',
+    quantity:Number(row.quantity || 1),
+    airTemp:row.air_temp,
+    waterTemp:row.water_temp,
+    skyCondition:row.sky_condition || '',
+    waterCondition:row.water_condition || '',
+    waterClarity:row.water_clarity || '',
+    depthZone:row.depth_zone || '',
+    retrieveSpeed:row.retrieve_speed || '',
+    presentationStyle:row.presentation_style || '',
+    structureType:row.structure_type || '',
+    hatches:row.hatches || '',
+    notes:row.notes || '',
+    locationSource:row.location_source || '',
+    markerAccuracy:row.marker_accuracy,
+    marker:{lat:Number(row.marker_lat || 0), lng:Number(row.marker_lng || 0)}
+  });
+}
+
+async function initCloud({syncOnLoad=true}={}){
+  const cfg=getSupabaseConfig();
+  state.cloud.configured=cloudIsConfigured();
+  state.cloud.table=cfg.table;
+  state.cloud.appId=cfg.appId;
+  state.cloud.autoSyncOnSave=cfg.autoSyncOnSave;
+  state.cloud.lastError='';
+  if(!state.cloud.configured){
+    state.cloud.ready=false;
+    state.cloud.client=null;
+    updateCloudUi();
+    return false;
+  }
+  try{
+    state.cloud.client=window.supabase.createClient(cfg.url, cfg.anonKey, {
+      auth:{persistSession:false, autoRefreshToken:false, detectSessionInUrl:false}
+    });
+    state.cloud.ready=true;
+    updateCloudUi();
+    if(syncOnLoad && cfg.autoSyncOnLoad) await syncCloud({quiet:true});
+    return true;
+  }catch(error){
+    state.cloud.ready=false;
+    state.cloud.client=null;
+    state.cloud.lastError=error?.message || 'unknown error';
+    updateCloudUi();
+    return false;
+  }
+}
+
+async function syncCloud({quiet=false}={}){
+  if(!state.cloud.ready){
+    const ok=await initCloud({syncOnLoad:false});
+    if(!ok){
+      if(!quiet) alert('Cloud sync is not configured yet. Add your Supabase URL and anon/publishable key in supabase-config.js.');
+      return false;
+    }
+  }
+  if(state.cloud.syncing) return false;
+  state.cloud.syncing=true;
+  updateCloudUi();
+  if(!quiet) setStatus('Syncing shared logs…', 2600);
+  try{
+    const rows=normalizeEntryArray(state.entries).map(entryToCloudRow);
+    if(rows.length){
+      const {error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(rows, {onConflict:'id'});
+      if(pushError) throw pushError;
+    }
+    const {data,error}=await state.cloud.client.from(state.cloud.table).select('*').eq('app_id', state.cloud.appId).order('created_at', {ascending:false});
+    if(error) throw error;
+    state.entries=mergeEntries(state.entries, (data||[]).map(cloudRowToEntry));
+    persistEntries();
+    render();
+    state.cloud.lastSyncAt=new Date().toISOString();
+    state.cloud.lastError='';
+    updateCloudUi();
+    if(!quiet) setStatus(`Cloud synced: ${state.entries.length} logs available.`, 3600);
+    return true;
+  }catch(error){
+    state.cloud.lastError=error?.message || 'unknown error';
+    state.cloud.ready=false;
+    updateCloudUi();
+    if(!quiet){
+      alert(`Cloud sync failed: ${state.cloud.lastError}`);
+      setStatus(`Cloud sync failed: ${state.cloud.lastError}`, 4200);
+    }
+    return false;
+  }finally{
+    state.cloud.syncing=false;
+    updateCloudUi();
+  }
+}
+
+async function deleteCloudEntry(entryId){
+  if(!state.cloud.ready || !entryId) return false;
+  try{
+    const {error}=await state.cloud.client.from(state.cloud.table).delete().eq('id', entryId).eq('app_id', state.cloud.appId);
+    if(error) throw error;
+    state.cloud.lastSyncAt=new Date().toISOString();
+    state.cloud.lastError='';
+    updateCloudUi();
+    return true;
+  }catch(error){
+    state.cloud.lastError=error?.message || 'unknown error';
+    updateCloudUi();
+    return false;
+  }
+}
+
+function validateLogForm(){
+  const requiredChecks=[
+    ['date',$('date').value],
+    ['Time of Day',$('timeOfDay').value],
+    ['Body of Water',$('waterName').value.trim()],
+    ['Sky',$('skyCondition').value],
+    ['Water Conditions',$('waterCondition').value],
+    ['Water Clarity',$('waterClarity').value],
+    ['Depth Zone',$('depthZone').value],
+    ['Presentation Style',$('presentationStyle').value],
+    ['Structure Type',$('structureType').value],
+    ['Bait Type',$('baitType').value],
+    ['Main Color',$('mainColor').value],
+    ['Retrieve Speed',$('retrieveSpeed').value],
+    ['Species',$('species').value],
+    ['Size (inches)',$('sizeInches').value],
+    ['Quantity',$('quantity').value]
+  ];
+  for(const [label, value] of requiredChecks){
+    if(!String(value || '').trim()) return label;
+  }
+  if($('baitType').value==='Fly'){
+    if(!$('baitSubtype').value) return 'Fly Type';
+    if(!$('baitName').value.trim()) return 'Fly Pattern';
+    if(!$('baitSize').value) return 'Fly Size';
+  }
+  if($('baitType').value==='Lure'){
+    if(!$('baitSubtype').value) return 'Lure Type';
+    if(!$('baitName').value.trim()) return 'Lure Name';
+  }
+  if($('baitType').value==='Live Bait' && !$('baitSubtype').value) return 'Bait Type';
+  if(!state.currentDraftMarker) return 'Fishing Spot';
+  return '';
+}
+
   if(!select) return;
   select.innerHTML=`<option value="">${placeholder}</option>`;
   values.forEach(v=>{
@@ -248,6 +561,7 @@ const BAIT_COLOR_DEFAULTS={
     'Minnow':{main:'Brown',additional:'Silver'},
     'Crawler':{main:'Brown',additional:''},
     'Worm':{main:'Brown',additional:''},
+    'Cut Bait':{main:'White',additional:'Silver'},
     'Spawn':{main:'Pink',additional:'Orange'},
     'Waxworm / Wiggler':{main:'Cream',additional:'Brown'},
     'Leech':{main:'Black',additional:''},
@@ -404,6 +718,12 @@ async function detectNearbyWater(lat,lng){
     const data=await response.json();
     const candidates=normalizeWaterCandidates(data.elements||[],lat,lng);
     if(!candidates.length){
+      const fallbackName=await fallbackNearbyWaterName(lat,lng);
+      if(fallbackName){
+        $('waterName').value=fallbackName;
+        $('waterLookupStatus').textContent=`Fallback matched: ${fallbackName}.`;
+        return;
+      }
       $('waterLookupStatus').textContent='No named nearby water found. Type it manually if needed.';
       return;
     }
@@ -423,6 +743,12 @@ async function detectNearbyWater(lat,lng){
     $('waterName').value=candidates[0].name;
     $('waterLookupStatus').textContent=`Overpass found ${candidates.length} nearby water features. Choose the right one if needed.`;
   }catch(error){
+    const fallbackName=await fallbackNearbyWaterName(lat,lng);
+    if(fallbackName){
+      $('waterName').value=fallbackName;
+      $('waterLookupStatus').textContent=`Overpass lookup failed, but fallback matched: ${fallbackName}.`;
+      return;
+    }
     $('waterLookupStatus').textContent=`Overpass lookup failed: ${error.message}. Type the body of water manually.`;
   }
 }
@@ -453,6 +779,81 @@ function haversineMeters(lat1,lon1,lat2,lon2){
   const dLon=toRad(lon2-lon1);
   const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
   return 2*R*Math.asin(Math.sqrt(a));
+}
+
+
+async function fallbackNearbyWaterName(lat,lng){
+  const reverseName=await reverseLookupWaterName(lat,lng);
+  if(reverseName) return reverseName;
+  return guessGreatLake(lat,lng);
+}
+
+async function reverseLookupWaterName(lat,lng){
+  const params=new URLSearchParams({
+    format:'jsonv2',
+    lat:String(lat),
+    lon:String(lng),
+    zoom:'10',
+    addressdetails:'1'
+  });
+  try{
+    const response=await fetch(`${NOMINATIM_REVERSE_URL}?${params.toString()}`,{
+      headers:{'Accept':'application/json'}
+    });
+    if(!response.ok) throw new Error(`reverse lookup returned ${response.status}`);
+    const data=await response.json();
+    return extractReverseWaterName(data);
+  }catch{
+    return '';
+  }
+}
+
+function extractReverseWaterName(data){
+  const address=data?.address || {};
+  const direct=[
+    address.body_of_water,
+    address.water,
+    address.sea,
+    address.bay,
+    address.lake,
+    address.river,
+    address.stream,
+    address.reservoir,
+    address.canal
+  ].find(value=>typeof value==='string' && value.trim());
+  if(direct) return direct.trim();
+
+  const candidates=[data?.name, data?.display_name]
+    .filter(value=>typeof value==='string' && value.trim())
+    .flatMap(value=>value.split(','))
+    .map(value=>value.trim())
+    .filter(Boolean);
+
+  return candidates.find(value=>/\b(lake|river|creek|stream|bay|harbor|pond|reservoir|ocean|sea|gulf|canal)\b/i.test(value)) || '';
+}
+
+function guessGreatLake(lat,lng){
+  const match=GREAT_LAKE_FALLBACKS.find(lake=>lat>=lake.minLat && lat<=lake.maxLat && lng>=lake.minLng && lng<=lake.maxLng);
+  return match ? match.name : '';
+}
+
+function getSafeRandomId(){
+  try{
+    if(typeof crypto!=='undefined' && crypto?.randomUUID) return crypto.randomUUID();
+  }catch{}
+  return `log-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+}
+
+function getLabelTextForControl(control){
+  if(!(control instanceof HTMLElement)) return 'that field';
+  const label=control.closest('label');
+  if(label){
+    const clone=label.cloneNode(true);
+    clone.querySelectorAll('input, select, textarea, div').forEach(node=>node.remove());
+    const text=clone.textContent.replace(/\s+/g,' ').trim();
+    if(text) return text;
+  }
+  return control.getAttribute('name') || control.id || 'that field';
 }
 
 function setDraftMarker(lat,lng,{source='map',accuracy=null,recenter=false}={}){
@@ -555,59 +956,78 @@ function render(){
       state.entries=state.entries.filter(e=>e.id!==entry.id);
       persistEntries();
       render();
+      deleteCloudEntry(entry.id);
     });
     $('entryList').appendChild(card);
   });
 }
 
-function onSubmit(event){
+async function onSubmit(event){
   event.preventDefault();
-  const raw=Object.fromEntries(new FormData($('logForm')).entries());
-  let baitName='';
-  if(raw.baitType==='Fly' || raw.baitType==='Lure') baitName=(raw.baitName||'').trim();
-  if(raw.baitType==='Live Bait') baitName=raw.baitSubtype || '';
-  if(!baitName) return alert('Enter the bait name that matches the bait type.');
-  if(!state.currentDraftMarker) return alert('Set the spot first with your location or by picking on the map.');
-  const ll=state.currentDraftMarker.getLatLng();
-  state.entries.unshift({
-    id:crypto.randomUUID(),
-    owner:CURRENT_ANGLER,
-    createdAt:new Date().toISOString(),
-    date:raw.date,
-    timeOfDay:raw.timeOfDay,
-    waterName:raw.waterName.trim(),
-    waypointName:(raw.waypointName||'').trim(),
-    baitType:raw.baitType,
-    baitSubtype:raw.baitSubtype,
-    baitName,
-    mainColor:raw.mainColor,
-    additionalColor:raw.additionalColor,
-    baitSize:raw.baitType==='Fly' ? raw.baitSize : '',
-    species:raw.species,
-    sizeInches:Number(raw.sizeInches||0),
-    weight:raw.weight.trim(),
-    quantity:Number(raw.quantity||1),
-    airTemp:raw.airTemp ? Number(raw.airTemp) : null,
-    waterTemp:raw.waterTemp ? Number(raw.waterTemp) : null,
-    skyCondition:raw.skyCondition,
-    waterCondition:raw.waterCondition,
-    waterClarity:raw.waterClarity,
-    depthZone:raw.depthZone,
-    retrieveSpeed:raw.retrieveSpeed,
-    presentationStyle:raw.presentationStyle,
-    structureType:raw.structureType,
-    hatches:raw.hatches.trim(),
-    notes:raw.notes.trim(),
-    locationSource:state.currentDraftMeta.source,
-    markerAccuracy:state.currentDraftMeta.accuracy,
-    marker:{lat:ll.lat,lng:ll.lng}
-  });
-  persistEntries();
-  clearFormAfterSave();
-  render();
-  openSheet($('reviewSheet'));
-  closeSheet($('logSheet'));
-  setStatus('Fishing log saved.', 2600);
+  const missingField=validateLogForm();
+  if(missingField){
+    setStatus(`Missing or incomplete: ${missingField}.`, 3800);
+    alert(`Missing or incomplete: ${missingField}.`);
+    return;
+  }
+  try{
+    const raw=Object.fromEntries(new FormData($('logForm')).entries());
+    let baitName='';
+    if(raw.baitType==='Fly' || raw.baitType==='Lure') baitName=(raw.baitName||'').trim();
+    if(raw.baitType==='Live Bait') baitName=raw.baitSubtype || '';
+    if(!baitName) throw new Error('Bait details are incomplete.');
+    if(!state.currentDraftMarker) throw new Error('Fishing spot is missing.');
+    const ll=state.currentDraftMarker.getLatLng();
+    const entry=normalizeEntry({
+      id:getSafeRandomId(),
+      owner:CURRENT_ANGLER,
+      createdAt:new Date().toISOString(),
+      date:raw.date,
+      timeOfDay:raw.timeOfDay,
+      waterName:(raw.waterName||'').trim(),
+      waypointName:(raw.waypointName||'').trim(),
+      baitType:raw.baitType,
+      baitSubtype:raw.baitSubtype,
+      baitName,
+      mainColor:raw.mainColor,
+      additionalColor:raw.additionalColor,
+      baitSize:raw.baitType==='Fly' ? raw.baitSize : '',
+      species:raw.species,
+      sizeInches:Number(raw.sizeInches||0),
+      weight:(raw.weight||'').trim(),
+      quantity:Number(raw.quantity||1),
+      airTemp:raw.airTemp ? Number(raw.airTemp) : null,
+      waterTemp:raw.waterTemp ? Number(raw.waterTemp) : null,
+      skyCondition:raw.skyCondition,
+      waterCondition:raw.waterCondition,
+      waterClarity:raw.waterClarity,
+      depthZone:raw.depthZone,
+      retrieveSpeed:raw.retrieveSpeed,
+      presentationStyle:raw.presentationStyle,
+      structureType:raw.structureType,
+      hatches:(raw.hatches||'').trim(),
+      notes:(raw.notes||'').trim(),
+      locationSource:state.currentDraftMeta.source,
+      markerAccuracy:state.currentDraftMeta.accuracy,
+      marker:{lat:ll.lat,lng:ll.lng}
+    });
+    state.entries=mergeEntries([entry], state.entries);
+    persistEntries();
+    clearFormAfterSave();
+    render();
+    openSheet($('reviewSheet'));
+    closeSheet($('logSheet'));
+    setStatus('Fishing log saved locally.', 2600);
+    if(cloudIsConfigured() && state.cloud.autoSyncOnSave){
+      syncCloud({quiet:true}).then(ok=>{
+        if(ok) setStatus('Fishing log saved and synced.', 3200);
+      });
+    }
+  }catch(error){
+    console.error('Save log failed', error);
+    alert(`Save log failed: ${error?.message || 'unknown error'}`);
+    setStatus(`Save failed: ${error?.message || 'unknown error'}`, 4200);
+  }
 }
 
 function clearFormAfterSave(){
@@ -651,12 +1071,12 @@ function setStatus(message, duration=2600){
 }
 
 function persistEntries(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.entries));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeEntryArray(state.entries)));
 }
 
 function loadEntries(){
   try{
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');
+    return normalizeEntryArray(JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'));
   }catch{
     return [];
   }
@@ -700,6 +1120,13 @@ $('filterBtn').addEventListener('click',()=>{
   openSheet($('filterSheet'));
   closeSheet($('logSheet'));
   closeSheet($('reviewSheet'));
+});
+$('cloudBtn').addEventListener('click', async ()=>{
+  if(!cloudIsConfigured()) {
+    alert('Cloud is not configured yet. Open supabase-config.js and add your Supabase URL plus anon or publishable key. Then run the SQL in supabase-setup.sql.');
+    return;
+  }
+  await syncCloud({quiet:false});
 });
 $('closeLogSheetBtn').addEventListener('click',()=>{
   closeSheet($('logSheet'));
@@ -776,16 +1203,14 @@ map.on('click',async event=>{
   await detectNearbyWater(event.latlng.lat,event.latlng.lng);
   setStatus('Spot set from map. Fill out the log and save it.', 3600);
 });
-$('logForm').addEventListener('invalid',event=>{
-  const target=event.target;
-  if(!(target instanceof HTMLElement)) return;
-  if(target.disabled) return;
-  const wrap=target.closest('label') || target;
-  wrap.scrollIntoView({behavior:'smooth', block:'center'});
-  setStatus('A required field is missing. Check the highlighted field.', 3200);
-}, true);
+$('saveBtn').addEventListener('click',()=>{
+  const missingField=validateLogForm();
+  if(missingField) setStatus(`Missing or incomplete: ${missingField}.`, 3600);
+});
 $('logForm').addEventListener('submit',onSubmit);
 applyBaitTypeUI();
 syncAddLogButton();
+updateCloudUi();
 setStatus(`Fish Map Test ${APP_VERSION} loaded.`, 2200);
 render();
+initCloud();
