@@ -28,3 +28,12 @@ Notes
 - Supabase config now uses window.FISHING_SUPABASE_CONFIG instead of a generic global object
 - shared table/app identifiers now default to fishing_catch_logs and fishing_logbook_shared
 - browser storage now uses fishingLogbook.* keys with a fallback migration from older local keys
+
+
+Supabase setup:
+1. Open supabase-setup.sql in your Supabase SQL Editor and run it.
+2. Open supabase-config.js
+3. Paste in:
+   - url: your Project URL
+   - anonKey: your Publishable key (preferred) or legacy anon key
+4. Save the file and reload the app.

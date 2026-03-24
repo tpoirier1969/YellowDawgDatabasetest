@@ -1,4 +1,4 @@
-const APP_VERSION='v10.8';
+const APP_VERSION='v10.9';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
 const OVERPASS_URL='https://overpass-api.de/api/interpreter';
@@ -15,7 +15,7 @@ const LIVE_BAIT_TYPES=['Minnow','Crawler','Worm','Cut Bait','Spawn','Waxworm / W
 const MIDWEST_FISH_SPECIES=[
   'Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bullhead','Burbot','Channel Catfish',
   'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Flathead Catfish','Freshwater Drum','Gar','Hybrid Striped Bass',
-  'Lake Sturgeon','Lake Trout','Lake Whitefish','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed',
+  'Lake Sturgeon','Lake Trout','Lake Whitefish','Whitefish (Lake Whitefish)','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed',
   'Rainbow Trout / Steelhead','Rock Bass','Sauger','Smallmouth Bass','Splake','Sunfish','Walleye','White Bass','White Crappie','Yellow Perch'
 ];
 
@@ -45,6 +45,15 @@ state.markerCluster=L.markerClusterGroup();
 map.addLayer(state.markerCluster);
 
 function setOptions(select, values, placeholder='Choose one'){
+  if(!select) return;
+  select.innerHTML=`<option value="">${placeholder}</option>`;
+  values.forEach(v=>{
+    const o=document.createElement('option');
+    o.value=v;
+    o.textContent=v;
+    select.appendChild(o);
+  });
+}
 
 function getFishingSupabaseConfig(){
   const cfg=(window.FISHING_SUPABASE_CONFIG && typeof window.FISHING_SUPABASE_CONFIG==='object') ? window.FISHING_SUPABASE_CONFIG : {};
@@ -345,16 +354,6 @@ function validateLogForm(){
   if($('baitType').value==='Live Bait' && !$('baitSubtype').value) return 'Bait Type';
   if(!state.currentDraftMarker) return 'Fishing Spot';
   return '';
-}
-
-  if(!select) return;
-  select.innerHTML=`<option value="">${placeholder}</option>`;
-  values.forEach(v=>{
-    const o=document.createElement('option');
-    o.value=v;
-    o.textContent=v;
-    select.appendChild(o);
-  });
 }
 
 function populateSpeciesOptions(){
@@ -1135,7 +1134,7 @@ $('filterBtn').addEventListener('click',()=>{
 });
 $('cloudBtn').addEventListener('click', async ()=>{
   if(!cloudIsConfigured()) {
-    alert('Cloud is not configured yet. Open supabase-config.js and add your Supabase URL plus anon or publishable key. Then run the SQL in supabase-setup.sql.');
+    alert('Cloud is not configured yet. Open supabase-config.js and paste in your Supabase project URL plus your publishable key (or legacy anon key). Then run supabase-setup.sql in the Supabase SQL Editor.');
     return;
   }
   await syncCloud({quiet:false});
