@@ -39,3 +39,8 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 .entryButtons { display:flex; gap:8px; } .entryBtn.danger { background:rgba(153,36,36,.3); } .chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; } .chip { display:inline-flex; align-items:center; min-height:28px; padding:0 10px; border-radius:999px; background:rgba(255,255,255,.06); border:1px solid var(--border); font-size:12px; } .entryNotes { margin:0; white-space:pre-wrap; line-height:1.4; }
 @media (max-width:900px){ .statsGrid{grid-template-columns:repeat(2,minmax(0,1fr));} .form-grid.four{grid-template-columns:repeat(2,minmax(0,1fr));} }
 @media (max-width:680px){ .form-grid.two,.form-grid.three,.form-grid.four,.statsGrid{grid-template-columns:1fr;} #floatingActions{left:12px; right:12px; bottom:var(--safe-bottom);} .pill{width:100%;} #statusBadge{left:12px; right:12px; max-width:none; bottom:calc(var(--safe-bottom) + 236px);} #cloudBadge{left:12px; right:12px; top:calc(var(--safe-top) + 52px); max-width:none;} .entryTitleRow{flex-direction:column;} .entryButtons{width:100%; flex-wrap:wrap;} }
+.checkGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:8px; }
+.checkLabel { display:flex; flex-direction:row; align-items:center; gap:10px; padding:12px; border:1px solid var(--border); border-radius:12px; background:rgba(255,255,255,.04); color:var(--text); }
+.checkLabel input { width:auto; min-height:auto; margin:0; accent-color:var(--accent); }
+.checkLabel span { color:var(--text); font-size:14px; }
+@media (max-width:900px){ .checkGrid{grid-template-columns:1fr;} }

@@ -1,4 +1,4 @@
-const APP_VERSION='v10.9';
+const APP_VERSION='v10.10';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
 const OVERPASS_URL='https://overpass-api.de/api/interpreter';
@@ -8,6 +8,7 @@ const DEFAULT_CENTER=[46.62,-87.67];
 const DEFAULT_ZOOM=9;
 const DEFAULT_LOG_ZOOM=14;
 const CURRENT_ANGLER=localStorage.getItem('fishingLogbook.currentAngler')||localStorage.getItem('fishMap.currentAngler')||'Tod';
+const COLOR_OPTIONS=['Black','Brown','Chartreuse','Cinnamon','Copper','Cream','Dun','Flash','Gold','Gray','Green','Olive','Orange','Peacock','Pearl','Pink','Purple','Red','Silver','Tan','White','Yellow'];
 const DEFAULT_FISHING_SUPABASE_CONFIG={url:'',anonKey:'',table:'fishing_catch_logs',appId:'fishing_logbook_shared',autoSyncOnLoad:true,autoSyncOnSave:true};
 const FLY_TYPES=['Dry','Nymph','Streamer','Emerger','Wet Fly','Terrestrial','Other'];
 const LURE_TYPES=['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'];
@@ -15,9 +16,9 @@ const LIVE_BAIT_TYPES=['Minnow','Crawler','Worm','Cut Bait','Spawn','Waxworm / W
 const MIDWEST_FISH_SPECIES=[
   'Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bullhead','Burbot','Channel Catfish',
   'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Flathead Catfish','Freshwater Drum','Gar','Hybrid Striped Bass',
-  'Lake Sturgeon','Lake Trout','Lake Whitefish','Whitefish (Lake Whitefish)','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed',
-  'Rainbow Trout / Steelhead','Rock Bass','Sauger','Smallmouth Bass','Splake','Sunfish','Walleye','White Bass','White Crappie','Yellow Perch'
-];
+  'Lake Sturgeon','Lake Trout','Lake Whitefish','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed',
+  'Rainbow Trout / Steelhead','Rock Bass','Sauger','Smallmouth Bass','Splake','Sunfish','Walleye','White Bass','White Crappie','Whitefish (Lake Whitefish)','Yellow Perch'
+].sort((a,b)=>a.localeCompare(b));
 
 const GREAT_LAKE_FALLBACKS=[
   {name:'Lake Superior', minLat:46.20, maxLat:48.45, minLng:-92.35, maxLng:-84.20},
@@ -55,6 +56,67 @@ function setOptions(select, values, placeholder='Choose one'){
   });
 }
 
+function setColorOptions(select, {includeBlank=true, blankLabel='Choose one'}={}){
+  if(!select) return;
+  select.innerHTML=includeBlank ? `<option value="">${blankLabel}</option>` : '';
+  COLOR_OPTIONS.forEach(color=>{
+    const o=document.createElement('option');
+    o.value=color;
+    o.textContent=color;
+    select.appendChild(o);
+  });
+}
+
+function populateColorOptions(){
+  const mainValue=$('mainColor').value;
+  const addValue=$('additionalColor').value;
+  const filterValue=$('filterColor').value;
+  setColorOptions($('mainColor'), {includeBlank:true, blankLabel:'Choose one'});
+  setColorOptions($('additionalColor'), {includeBlank:true, blankLabel:'None'});
+  setColorOptions($('filterColor'), {includeBlank:true, blankLabel:'All'});
+  if(mainValue && COLOR_OPTIONS.includes(mainValue)) $('mainColor').value=mainValue;
+  if(addValue && COLOR_OPTIONS.includes(addValue)) $('additionalColor').value=addValue;
+  if(filterValue && COLOR_OPTIONS.includes(filterValue)) $('filterColor').value=filterValue;
+}
+
+function hasMarker(entry){
+  return Number.isFinite(entry?.marker?.lat) && Number.isFinite(entry?.marker?.lng);
+}
+
+function getEntryBaitLabel(entry={}){
+  return entry.baitName || entry.baitSubtype || entry.baitType || '—';
+}
+
+function getSharedCountyLabel(entry={}){
+  const county=(entry.countyName || '').trim();
+  const stateName=(entry.stateName || '').trim();
+  if(county && stateName) return `${county}, ${stateName}`;
+  return county || stateName || '';
+}
+
+function getSharedWaterLabel(entry={}){
+  if(entry.shareLocationLevel==='County Only') return getSharedCountyLabel(entry);
+  if(entry.shareLocationLevel==='Hidden') return 'Location hidden';
+  return (entry.waterName || '').trim() || 'Water not shared';
+}
+
+function clearWaterSuggestions(){
+  const list=$('waterNameSuggestionsList');
+  if(list) list.innerHTML='';
+}
+
+function setWaterSuggestions(candidates=[]){
+  clearWaterSuggestions();
+  const list=$('waterNameSuggestionsList');
+  if(!list) return;
+  candidates.forEach(candidate=>{
+    const option=document.createElement('option');
+    option.value=candidate.name;
+    option.label=`${candidate.featureLabel} · ${Math.round(candidate.distance)}m`;
+    list.appendChild(option);
+  });
+}
+
 function getFishingSupabaseConfig(){
   const cfg=(window.FISHING_SUPABASE_CONFIG && typeof window.FISHING_SUPABASE_CONFIG==='object') ? window.FISHING_SUPABASE_CONFIG : {};
   return {
@@ -85,7 +147,7 @@ function updateCloudUi(){
   const cloudSummary=$('cloudSummary');
   let badgeText='Local only';
   let buttonText='Cloud Setup';
-  let summary='Local-only mode. Add Supabase details in supabase-config.js to share logs across devices.';
+  let summary='Local-only mode. Add Supabase details in supabase-config.js to share logs across devices. Shared logs can now hide exact spots.';
 
   if(state.cloud.syncing){
     badgeText='Cloud syncing…';
@@ -131,14 +193,24 @@ function normalizeEntry(entry={}){
     hatches:entry.hatches || '',
     notes:entry.notes || '',
     locationSource:entry.locationSource || '',
+    shareToCloud:entry.shareToCloud!==false,
+    shareLocationLevel:entry.shareLocationLevel || 'Exact Spot',
+    shareBaitDetails:entry.shareBaitDetails!==false,
+    shareSizeDetails:entry.shareSizeDetails!==false,
+    shareNotes:entry.shareNotes!==false,
+    countyName:entry.countyName || '',
+    stateName:entry.stateName || '',
     markerAccuracy:entry.markerAccuracy==='' || entry.markerAccuracy==null ? null : Number(entry.markerAccuracy),
-    marker:{lat:Number(marker.lat || 0), lng:Number(marker.lng || 0)}
+    marker:{
+      lat:marker.lat==='' || marker.lat==null || !Number.isFinite(Number(marker.lat)) ? null : Number(marker.lat),
+      lng:marker.lng==='' || marker.lng==null || !Number.isFinite(Number(marker.lng)) ? null : Number(marker.lng)
+    }
   };
 }
 
 function normalizeEntryArray(entries=[]){
   if(!Array.isArray(entries)) return [];
-  return entries.map(normalizeEntry).filter(entry=>Number.isFinite(entry.marker.lat) && Number.isFinite(entry.marker.lng)).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  return entries.map(normalizeEntry).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
 }
 
 function mergeEntries(localEntries=[], remoteEntries=[]){
@@ -158,6 +230,34 @@ function mergeEntries(localEntries=[], remoteEntries=[]){
 }
 
 function entryToCloudRow(entry){
+  if(entry.shareToCloud===false) return null;
+  const shareLocationLevel=entry.shareLocationLevel || 'Exact Spot';
+  const sharedCountyLabel=getSharedCountyLabel(entry);
+  const exactMarker=hasMarker(entry);
+  let sharedLat=null;
+  let sharedLng=null;
+  let sharedWaterName=getSharedWaterLabel(entry);
+  let sharedWaypointName=null;
+  let sharedLocationSource=entry.locationSource || null;
+  let sharedAccuracy=entry.markerAccuracy;
+
+  if(shareLocationLevel==='Exact Spot' && exactMarker){
+    sharedLat=entry.marker.lat;
+    sharedLng=entry.marker.lng;
+    sharedWaypointName=entry.waypointName || null;
+  }else if(shareLocationLevel==='Body of Water Only'){
+    sharedLocationSource='body-water-only';
+    sharedAccuracy=null;
+  }else if(shareLocationLevel==='County Only'){
+    sharedWaterName=sharedCountyLabel || 'County only';
+    sharedLocationSource='county-only';
+    sharedAccuracy=null;
+  }else if(shareLocationLevel==='Hidden'){
+    sharedWaterName='Location hidden';
+    sharedLocationSource='hidden';
+    sharedAccuracy=null;
+  }
+
   return {
     id:entry.id,
     app_id:state.cloud.appId,
@@ -165,18 +265,18 @@ function entryToCloudRow(entry){
     created_at:entry.createdAt,
     log_date:entry.date,
     time_of_day:entry.timeOfDay,
-    water_name:entry.waterName,
-    waypoint_name:entry.waypointName || null,
+    water_name:sharedWaterName || 'Location hidden',
+    waypoint_name:sharedWaypointName,
     bait_type:entry.baitType,
-    bait_subtype:entry.baitSubtype || null,
-    bait_name:entry.baitName,
-    main_color:entry.mainColor || null,
-    additional_color:entry.additionalColor || null,
-    bait_size:entry.baitSize || null,
+    bait_subtype:entry.shareBaitDetails ? (entry.baitSubtype || null) : null,
+    bait_name:entry.shareBaitDetails ? getEntryBaitLabel(entry) : 'Hidden',
+    main_color:entry.shareBaitDetails ? (entry.mainColor || null) : null,
+    additional_color:entry.shareBaitDetails ? (entry.additionalColor || null) : null,
+    bait_size:entry.shareBaitDetails ? (entry.baitSize || null) : null,
     species:entry.species,
-    size_inches:entry.sizeInches,
-    weight:entry.weight || null,
-    quantity:entry.quantity || 1,
+    size_inches:entry.shareSizeDetails ? entry.sizeInches : null,
+    weight:entry.shareSizeDetails ? (entry.weight || null) : null,
+    quantity:entry.shareSizeDetails ? (entry.quantity || 1) : null,
     air_temp:entry.airTemp,
     water_temp:entry.waterTemp,
     sky_condition:entry.skyCondition || null,
@@ -187,11 +287,18 @@ function entryToCloudRow(entry){
     presentation_style:entry.presentationStyle || null,
     structure_type:entry.structureType || null,
     hatches:entry.hatches || null,
-    notes:entry.notes || null,
-    location_source:entry.locationSource || null,
-    marker_accuracy:entry.markerAccuracy,
-    marker_lat:entry.marker.lat,
-    marker_lng:entry.marker.lng,
+    notes:entry.shareNotes ? (entry.notes || null) : null,
+    location_source:sharedLocationSource,
+    marker_accuracy:sharedAccuracy,
+    marker_lat:sharedLat,
+    marker_lng:sharedLng,
+    share_to_cloud:true,
+    share_location_level:shareLocationLevel,
+    share_bait_details:entry.shareBaitDetails!==false,
+    share_size_details:entry.shareSizeDetails!==false,
+    share_notes:entry.shareNotes!==false,
+    county_name:entry.countyName || null,
+    state_name:entry.stateName || null,
     updated_at:new Date().toISOString()
   };
 }
@@ -212,9 +319,9 @@ function cloudRowToEntry(row){
     additionalColor:row.additional_color || '',
     baitSize:row.bait_size || '',
     species:row.species,
-    sizeInches:Number(row.size_inches || 0),
+    sizeInches:row.size_inches==='' || row.size_inches==null ? null : Number(row.size_inches),
     weight:row.weight || '',
-    quantity:Number(row.quantity || 1),
+    quantity:row.quantity==='' || row.quantity==null ? null : Number(row.quantity),
     airTemp:row.air_temp,
     waterTemp:row.water_temp,
     skyCondition:row.sky_condition || '',
@@ -227,8 +334,15 @@ function cloudRowToEntry(row){
     hatches:row.hatches || '',
     notes:row.notes || '',
     locationSource:row.location_source || '',
+    shareToCloud:row.share_to_cloud!==false,
+    shareLocationLevel:row.share_location_level || 'Exact Spot',
+    shareBaitDetails:row.share_bait_details!==false,
+    shareSizeDetails:row.share_size_details!==false,
+    shareNotes:row.share_notes!==false,
+    countyName:row.county_name || '',
+    stateName:row.state_name || '',
     markerAccuracy:row.marker_accuracy,
-    marker:{lat:Number(row.marker_lat || 0), lng:Number(row.marker_lng || 0)}
+    marker:{lat:row.marker_lat==null ? null : Number(row.marker_lat), lng:row.marker_lng==null ? null : Number(row.marker_lng)}
   });
 }
 
@@ -275,7 +389,7 @@ async function syncCloud({quiet=false}={}){
   updateCloudUi();
   if(!quiet) setStatus('Syncing shared logs…', 2600);
   try{
-    const rows=normalizeEntryArray(state.entries).map(entryToCloudRow);
+    const rows=normalizeEntryArray(state.entries).map(entryToCloudRow).filter(Boolean);
     if(rows.length){
       const {error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(rows, {onConflict:'id'});
       if(pushError) throw pushError;
@@ -349,7 +463,6 @@ function validateLogForm(){
   }
   if($('baitType').value==='Lure'){
     if(!$('baitSubtype').value) return 'Lure Type';
-    if(!$('baitName').value.trim()) return 'Lure Name';
   }
   if($('baitType').value==='Live Bait' && !$('baitSubtype').value) return 'Bait Type';
   if(!state.currentDraftMarker) return 'Fishing Spot';
@@ -446,6 +559,9 @@ function locationSourceLabel(source=''){
   if(source==='device') return 'Device GPS';
   if(source==='map') return 'Map-picked';
   if(source==='adjusted') return 'Adjusted marker';
+  if(source==='body-water-only') return 'Body of water only';
+  if(source==='county-only') return 'County only';
+  if(source==='hidden') return 'Location hidden';
   return 'Spot';
 }
 
@@ -652,10 +768,9 @@ function applyBaitTypeUI(){
     $('nameWrap').classList.remove('hidden');
     setOptions(baitSubtype, LURE_TYPES, 'Choose lure type');
     setLabelText($('subtypeWrap'), 'Lure Type');
-    setLabelText($('nameLabel'), 'Lure Name');
+    setLabelText($('nameLabel'), 'Lure Name (optional)');
     baitSubtype.required=true;
-    baitName.required=true;
-    baitName.placeholder='Type lure name...';
+    baitName.placeholder='Optional lure name...';
   } else if(type==='Live Bait'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
@@ -709,8 +824,7 @@ function applyFly(item){
 
 async function detectNearbyWater(lat,lng){
   $('waterLookupStatus').textContent='Checking Overpass for nearby rivers and lakes...';
-  $('nearbyWaterWrap').classList.add('hidden');
-  $('nearbyWaterSelect').innerHTML='<option value="">Choose one</option>';
+  clearWaterSuggestions();
   const query=`[out:json][timeout:25];(way["waterway"~"river|stream|canal|ditch"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});relation["waterway"~"river|stream|canal|ditch"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});way["natural"="water"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});relation["natural"="water"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});way["water"~"lake|pond|reservoir"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});relation["water"~"lake|pond|reservoir"](around:${OVERPASS_RADIUS_METERS},${lat},${lng});relation["place"="sea"](around:${OVERPASS_RADIUS_METERS},${lat},${lng}););out tags center;`;
   try{
     const response=await fetch(OVERPASS_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:query});
@@ -732,16 +846,9 @@ async function detectNearbyWater(lat,lng){
       $('waterLookupStatus').textContent=`Overpass matched: ${candidates[0].name}.`;
       return;
     }
-    $('nearbyWaterWrap').classList.remove('hidden');
-    candidates.forEach(c=>{
-      const o=document.createElement('option');
-      o.value=c.name;
-      o.textContent=`${c.name} · ${c.featureLabel} · ${Math.round(c.distance)}m`;
-      $('nearbyWaterSelect').appendChild(o);
-    });
-    $('nearbyWaterSelect').value=candidates[0].name;
+    setWaterSuggestions(candidates);
     $('waterName').value=candidates[0].name;
-    $('waterLookupStatus').textContent=`Overpass found ${candidates.length} nearby water features. Choose the right one if needed.`;
+    $('waterLookupStatus').textContent=`Overpass found ${candidates.length} nearby water features. Pick the right one in the Body of Water field.`;
   }catch(error){
     const fallbackName=await fallbackNearbyWaterName(lat,lng);
     if(fallbackName){
@@ -805,6 +912,30 @@ async function reverseLookupWaterName(lat,lng){
     return extractReverseWaterName(data);
   }catch{
     return '';
+  }
+}
+
+async function reverseLookupPlaceDetails(lat,lng){
+  const params=new URLSearchParams({
+    format:'jsonv2',
+    lat:String(lat),
+    lon:String(lng),
+    zoom:'10',
+    addressdetails:'1'
+  });
+  try{
+    const response=await fetch(`${NOMINATIM_REVERSE_URL}?${params.toString()}`,{
+      headers:{'Accept':'application/json'}
+    });
+    if(!response.ok) throw new Error(`reverse lookup returned ${response.status}`);
+    const data=await response.json();
+    const address=data?.address || {};
+    return {
+      county:(address.county || address.state_district || '').trim(),
+      stateName:(address.state || address.province || '').trim()
+    };
+  }catch{
+    return {county:'', stateName:''};
   }
 }
 
@@ -893,19 +1024,21 @@ function render(){
   const visible=getFilteredEntries();
   state.markerCluster.clearLayers();
   visible.forEach(entry=>{
+    if(!hasMarker(entry)) return;
     const marker=L.marker([entry.marker.lat,entry.marker.lng]);
     const waypointLine=entry.waypointName ? `<br>${escapeHtml(entry.waypointName)}` : '';
     const coordLine=`<br>${escapeHtml(formatCoord(entry.marker.lat))}, ${escapeHtml(formatCoord(entry.marker.lng))}`;
-    marker.bindPopup(`<div><strong>${escapeHtml(entry.waterName)}</strong>${waypointLine}<br>${escapeHtml(entry.species)} · ${escapeHtml(String(entry.sizeInches))}" · Qty ${escapeHtml(String(entry.quantity))}<br>${escapeHtml(entry.baitName)}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${escapeHtml(entry.baitType)}${coordLine}</div>`);
+    marker.bindPopup(`<div><strong>${escapeHtml(entry.waterName)}</strong>${waypointLine}<br>${escapeHtml(entry.species)}${entry.sizeInches!=null ? ' · ' + escapeHtml(String(entry.sizeInches)) + '"' : ''}${entry.quantity!=null ? ' · Qty ' + escapeHtml(String(entry.quantity)) : ''}<br>${escapeHtml(getEntryBaitLabel(entry))}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${escapeHtml(entry.baitType)}${coordLine}</div>`);
     state.markerCluster.addLayer(marker);
   });
 
+  const visibleWithSize=visible.filter(entry=>entry.sizeInches!=null);
   $('statsGrid').innerHTML='';
   [
     ['Entries',visible.length],
     ['Fish Logged',visible.reduce((s,e)=>s+(e.quantity||0),0)],
-    ['Avg Size',visible.length ? (visible.reduce((s,e)=>s+(e.sizeInches||0),0)/visible.length).toFixed(1)+'"' : '0.0"'],
-    ['Top Bait',mostCommon(visible,'baitName')||'—'],
+    ['Avg Size',visibleWithSize.length ? (visibleWithSize.reduce((s,e)=>s+(e.sizeInches||0),0)/visibleWithSize.length).toFixed(1)+'"' : '0.0"'],
+    ['Top Bait',mostCommon(visible,'baitName')||mostCommon(visible,'baitSubtype')||'—'],
     ['Top Retrieve',mostCommon(visible,'retrieveSpeed')||'—']
   ].forEach(([label,val])=>{
     const card=document.createElement('div');
@@ -923,11 +1056,15 @@ function render(){
 
   visible.forEach(entry=>{
     const waypointLabel=entry.waypointName ? ` · ${escapeHtml(entry.waypointName)}` : '';
+    const sizeLabel=entry.sizeInches!=null ? `${escapeHtml(String(entry.sizeInches))}"` : 'size hidden';
+    const baitLabel=getEntryBaitLabel(entry);
+    const locateDisabled=!hasMarker(entry) ? ' disabled' : '';
     const card=document.createElement('article');
     card.className='entryCard';
-    card.innerHTML=`<div class="entryTitleRow"><div><h3 class="entryTitle">${escapeHtml(entry.waterName)}${waypointLabel} · ${escapeHtml(entry.species)}</h3><p class="entryMeta">${escapeHtml(formatDate(entry.date))} · ${escapeHtml(entry.timeOfDay)} · ${escapeHtml(entry.baitName)}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${escapeHtml(String(entry.sizeInches))}"</p></div><div class="entryButtons"><button type="button" class="entryBtn locateBtn">Locate</button><button type="button" class="entryBtn danger deleteBtn">Delete</button></div></div><div class="chips"></div>${entry.notes ? `<p class="entryNotes">${escapeHtml(entry.notes)}</p>` : ''}`;
+    card.innerHTML=`<div class="entryTitleRow"><div><h3 class="entryTitle">${escapeHtml(entry.waterName)}${waypointLabel} · ${escapeHtml(entry.species)}</h3><p class="entryMeta">${escapeHtml(formatDate(entry.date))} · ${escapeHtml(entry.timeOfDay)} · ${escapeHtml(baitLabel)}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${sizeLabel}</p></div><div class="entryButtons"><button type="button" class="entryBtn locateBtn"${locateDisabled}>Locate</button><button type="button" class="entryBtn danger deleteBtn">Delete</button></div></div><div class="chips"></div>${entry.notes ? `<p class="entryNotes">${escapeHtml(entry.notes)}</p>` : ''}`;
     const chips=card.querySelector('.chips');
     [
+      entry.shareToCloud===false ? 'Private only' : `Shared · ${entry.shareLocationLevel}`,
       entry.baitType,
       entry.baitSubtype,
       entry.mainColor && `${entry.mainColor}${entry.additionalColor ? '/' + entry.additionalColor : ''}`,
@@ -948,6 +1085,7 @@ function render(){
       chips.appendChild(chip);
     });
     card.querySelector('.locateBtn').addEventListener('click',()=>{
+      if(!hasMarker(entry)) return;
       map.setView([entry.marker.lat,entry.marker.lng],DEFAULT_LOG_ZOOM);
       closeSheet($('reviewSheet'));
     });
@@ -973,11 +1111,13 @@ async function onSubmit(event){
   try{
     const raw=Object.fromEntries(new FormData($('logForm')).entries());
     let baitName='';
-    if(raw.baitType==='Fly' || raw.baitType==='Lure') baitName=(raw.baitName||'').trim();
+    if(raw.baitType==='Fly') baitName=(raw.baitName||'').trim();
+    if(raw.baitType==='Lure') baitName=(raw.baitName||'').trim() || raw.baitSubtype || '';
     if(raw.baitType==='Live Bait') baitName=raw.baitSubtype || '';
     if(!baitName) throw new Error('Bait details are incomplete.');
     if(!state.currentDraftMarker) throw new Error('Fishing spot is missing.');
     const ll=state.currentDraftMarker.getLatLng();
+    const placeDetails=await reverseLookupPlaceDetails(ll.lat,ll.lng);
     const entry=normalizeEntry({
       id:getSafeRandomId(),
       owner:CURRENT_ANGLER,
@@ -1007,6 +1147,13 @@ async function onSubmit(event){
       structureType:raw.structureType,
       hatches:(raw.hatches||'').trim(),
       notes:(raw.notes||'').trim(),
+      shareToCloud:raw.shareToCloud!=='No',
+      shareLocationLevel:raw.shareLocationLevel || 'Exact Spot',
+      shareBaitDetails:!!raw.shareBaitDetails,
+      shareSizeDetails:!!raw.shareSizeDetails,
+      shareNotes:!!raw.shareNotes,
+      countyName:placeDetails.county,
+      stateName:placeDetails.stateName,
       locationSource:state.currentDraftMeta.source,
       markerAccuracy:state.currentDraftMeta.accuracy,
       marker:{lat:ll.lat,lng:ll.lng}
@@ -1033,6 +1180,11 @@ async function onSubmit(event){
 function clearFormAfterSave(){
   $('logForm').reset();
   $('date').value=new Date().toISOString().slice(0,10);
+  $('shareToCloud').value='Yes';
+  $('shareLocationLevel').value='Exact Spot';
+  $('shareBaitDetails').checked=true;
+  $('shareSizeDetails').checked=true;
+  $('shareNotes').checked=true;
   clearDraftMarker();
   applyBaitTypeUI();
 }
@@ -1041,8 +1193,7 @@ function clearDraftMarker(){
   state.pendingLocationRequestId+=1;
   $('waterName').value='';
   $('waypointName').value='';
-  $('nearbyWaterSelect').innerHTML='<option value="">Choose one</option>';
-  $('nearbyWaterWrap').classList.add('hidden');
+  clearWaterSuggestions();
   $('waterLookupStatus').textContent='Tap Add Log to use your phone location, or pick a spot on the map.';
   updateLocationSummary();
   state.currentDraftMeta={source:'',accuracy:null};
@@ -1119,6 +1270,12 @@ function escapeHtml(v){
 
 $('date').value=new Date().toISOString().slice(0,10);
 populateSpeciesOptions();
+populateColorOptions();
+$('shareToCloud').value='Yes';
+$('shareLocationLevel').value='Exact Spot';
+$('shareBaitDetails').checked=true;
+$('shareSizeDetails').checked=true;
+$('shareNotes').checked=true;
 $('addLogBtn').addEventListener('click',beginAddLog);
 $('reviewBtn').addEventListener('click',()=>{
   cancelAddMode();
@@ -1168,9 +1325,6 @@ $('resetFiltersBtn').addEventListener('click',()=>{
   render();
 }));
 $('baitType').addEventListener('change',applyBaitTypeUI);
-$('nearbyWaterSelect').addEventListener('change',()=>{
-  if($('nearbyWaterSelect').value) $('waterName').value=$('nearbyWaterSelect').value;
-});
 $('baitSubtype').addEventListener('change',()=>{
   if($('baitType').value==='Fly'){
     const exact=findExactFly($('baitName').value);
@@ -1203,6 +1357,9 @@ $('baitName').addEventListener('focus',()=>{
 document.addEventListener('click',event=>{
   if(!$('nameSuggestions').contains(event.target) && event.target!==$('baitName')) $('nameSuggestions').classList.add('hidden');
 });
+$('waterName').addEventListener('input',()=>{
+  if(!$('waterName').value.trim()) clearWaterSuggestions();
+});
 map.on('click',async event=>{
   if(!state.addMode) return;
   cancelAddMode();
@@ -1222,6 +1379,6 @@ $('logForm').addEventListener('submit',onSubmit);
 applyBaitTypeUI();
 syncAddLogButton();
 updateCloudUi();
-setStatus(`Fish Map Test ${APP_VERSION} loaded.`, 2200);
+setStatus(`Fishing Logbook ${APP_VERSION} loaded.`, 2200);
 render();
 initCloud();

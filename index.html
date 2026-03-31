@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fish Map Test v10.9</title>
+<title>Fishing Logbook v10.10</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -11,7 +11,7 @@
 </head>
 <body>
 <div id="map"></div>
-<div id="topBadge" class="glass">Fish Map Test v10.9</div>
+<div id="topBadge" class="glass">Fishing Logbook v10.10</div>
 <div id="statusBadge" class="glass hidden">Ready.</div>
 
 <div id="floatingActions">
@@ -46,13 +46,8 @@
         </label>
       </div>
       <div class="form-grid two">
-        <label>Body of Water<input type="text" id="waterName" name="waterName" required></label>
+        <label>Body of Water<input type="text" id="waterName" name="waterName" list="waterNameSuggestionsList" required><datalist id="waterNameSuggestionsList"></datalist></label>
         <label>Waypoint / Spot Name<input type="text" id="waypointName" name="waypointName" placeholder="Optional"></label>
-      </div>
-      <div class="form-grid two">
-        <label id="nearbyWaterWrap" class="hidden">Nearby Water Choices
-          <select id="nearbyWaterSelect" name="nearbyWaterSelect"><option value="">Choose one</option></select>
-        </label>
       </div>
     </div>
 
@@ -119,7 +114,7 @@
 
       <div id="nameWrap" class="typeahead-wrap">
         <label id="nameLabel">Name
-          <input type="text" id="baitName" name="baitName" placeholder="Choose bait type first..." required>
+          <input type="text" id="baitName" name="baitName" placeholder="Choose bait type first...">
         </label>
         <div id="nameSuggestions" class="suggestions hidden"></div>
       </div>
@@ -130,13 +125,11 @@
         <label>Main Color
           <select id="mainColor" name="mainColor" required>
             <option value="">Choose one</option>
-            <option>Black</option><option>Brown</option><option>Olive</option><option>Green</option><option>Tan</option><option>Cream</option><option>Yellow</option><option>Orange</option><option>Red</option><option>Pink</option><option>Purple</option><option>White</option><option>Gray</option><option>Silver</option><option>Gold</option><option>Peacock</option><option>Chartreuse</option><option>Copper</option><option>Pearl</option><option>Flash</option><option>Dun</option><option>Cinnamon</option>
           </select>
         </label>
         <label>Additional Color
           <select id="additionalColor" name="additionalColor">
             <option value="">None</option>
-            <option>Black</option><option>Brown</option><option>Olive</option><option>Green</option><option>Tan</option><option>Cream</option><option>Yellow</option><option>Orange</option><option>Red</option><option>Pink</option><option>Purple</option><option>White</option><option>Gray</option><option>Silver</option><option>Gold</option><option>Peacock</option><option>Chartreuse</option><option>Copper</option><option>Pearl</option><option>Flash</option><option>Dun</option><option>Cinnamon</option>
           </select>
         </label>
         <label>Retrieve Speed
@@ -164,6 +157,35 @@
       <label>Notes<textarea id="notes" name="notes" rows="3" placeholder="Anything worth remembering."></textarea></label>
     </div>
 
+
+    <div class="divider"></div>
+
+    <div class="section">
+      <div class="section-title">Sharing</div>
+      <div class="helper-box">Control what gets pushed to the shared cloud database. Keep the fish, hide the hole, or only share the county.</div>
+      <div class="form-grid two">
+        <label>Share to Cloud
+          <select id="shareToCloud" name="shareToCloud">
+            <option value="Yes" selected>Yes</option>
+            <option value="No">No</option>
+          </select>
+        </label>
+        <label>Location Visibility
+          <select id="shareLocationLevel" name="shareLocationLevel">
+            <option>Exact Spot</option>
+            <option>Body of Water Only</option>
+            <option>County Only</option>
+            <option>Hidden</option>
+          </select>
+        </label>
+      </div>
+      <div class="checkGrid">
+        <label class="checkLabel"><input type="checkbox" id="shareSizeDetails" name="shareSizeDetails" checked> <span>Share size and quantity</span></label>
+        <label class="checkLabel"><input type="checkbox" id="shareBaitDetails" name="shareBaitDetails" checked> <span>Share bait details</span></label>
+        <label class="checkLabel"><input type="checkbox" id="shareNotes" name="shareNotes" checked> <span>Share notes</span></label>
+      </div>
+    </div>
+
     <div class="button-row">
       <button type="button" id="clearSpotBtn" class="secondaryBtn">Clear Spot</button>
       <button type="submit" id="saveBtn" class="primaryBtn">Save Log</button>
@@ -184,7 +206,7 @@
   <div class="sheet-handle"></div>
   <div class="sheet-head"><div><h2>Filters</h2><p>Keep the map from turning into point soup.</p></div><button id="closeFilterSheetBtn" class="sheetClose" type="button">Close</button></div>
   <div class="form-grid two"><label>From Date<input type="date" id="filterDateFrom"></label><label>To Date<input type="date" id="filterDateTo"></label></div>
-  <div class="form-grid two"><label>Species<select id="filterSpecies"><option value="">All</option></select></label><label>Main Color<select id="filterColor"><option value="">All</option><option>Black</option><option>Brown</option><option>Olive</option><option>Green</option><option>Tan</option><option>Cream</option><option>Yellow</option><option>Orange</option><option>Red</option><option>Pink</option><option>Purple</option><option>White</option><option>Gray</option><option>Silver</option><option>Gold</option><option>Peacock</option><option>Chartreuse</option><option>Copper</option><option>Pearl</option><option>Flash</option><option>Dun</option><option>Cinnamon</option></select></label></div>
+  <div class="form-grid two"><label>Species<select id="filterSpecies"><option value="">All</option></select></label><label>Main Color<select id="filterColor"><option value="">All</option></select></label></div>
   <div class="form-grid two"><label>Sky<select id="filterSky"><option value="">All</option><option>Clear</option><option>Cloudy</option><option>Rain</option><option>Night</option></select></label><label>Retrieve Speed<select id="filterRetrieveSpeed"><option value="">All</option><option>Still</option><option>Drift</option><option>Slow</option><option>Medium</option><option>Fast</option></select></label></div>
   <div class="button-row"><button id="resetFiltersBtn" type="button" class="secondaryBtn">Reset Filters</button></div>
 </div>

@@ -18,9 +18,9 @@ create table if not exists public.fishing_catch_logs (
   additional_color text,
   bait_size text,
   species text not null,
-  size_inches numeric not null,
+  size_inches numeric,
   weight text,
-  quantity integer not null default 1,
+  quantity integer,
   air_temp numeric,
   water_temp numeric,
   sky_condition text,
@@ -34,9 +34,28 @@ create table if not exists public.fishing_catch_logs (
   notes text,
   location_source text,
   marker_accuracy numeric,
-  marker_lat double precision not null,
-  marker_lng double precision not null
+  marker_lat double precision,
+  marker_lng double precision,
+  share_to_cloud boolean not null default true,
+  share_location_level text not null default 'Exact Spot',
+  share_bait_details boolean not null default true,
+  share_size_details boolean not null default true,
+  share_notes boolean not null default true,
+  county_name text,
+  state_name text
 );
+
+alter table public.fishing_catch_logs alter column size_inches drop not null;
+alter table public.fishing_catch_logs alter column quantity drop not null;
+alter table public.fishing_catch_logs alter column marker_lat drop not null;
+alter table public.fishing_catch_logs alter column marker_lng drop not null;
+alter table public.fishing_catch_logs add column if not exists share_to_cloud boolean not null default true;
+alter table public.fishing_catch_logs add column if not exists share_location_level text not null default 'Exact Spot';
+alter table public.fishing_catch_logs add column if not exists share_bait_details boolean not null default true;
+alter table public.fishing_catch_logs add column if not exists share_size_details boolean not null default true;
+alter table public.fishing_catch_logs add column if not exists share_notes boolean not null default true;
+alter table public.fishing_catch_logs add column if not exists county_name text;
+alter table public.fishing_catch_logs add column if not exists state_name text;
 
 create index if not exists fishing_catch_logs_app_id_created_at_idx on public.fishing_catch_logs (app_id, created_at desc);
 
