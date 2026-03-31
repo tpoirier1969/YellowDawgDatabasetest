@@ -44,3 +44,5 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 .checkLabel input { width:auto; min-height:auto; margin:0; accent-color:var(--accent); }
 .checkLabel span { color:var(--text); font-size:14px; }
 @media (max-width:900px){ .checkGrid{grid-template-columns:1fr;} }
+
+#sharePreview[readonly]{opacity:.95;color:var(--text);background:rgba(255,255,255,.08);}

@@ -5,6 +5,9 @@ create table if not exists public.fishing_catch_logs (
   id text primary key,
   app_id text not null default 'fishing_logbook_shared',
   owner_name text,
+  owner_is_anonymous boolean not null default false,
+  angler_key text,
+  water_type text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   log_date date not null,
@@ -37,7 +40,8 @@ create table if not exists public.fishing_catch_logs (
   marker_lat double precision,
   marker_lng double precision,
   share_to_cloud boolean not null default true,
-  share_location_level text not null default 'Exact Spot',
+  share_location_level text not null default 'Water Type Only',
+  share_angler_name boolean not null default true,
   share_bait_details boolean not null default true,
   share_size_details boolean not null default true,
   share_notes boolean not null default true,
@@ -101,3 +105,8 @@ create trigger fishing_catch_logs_set_updated_at
 before update on public.fishing_catch_logs
 for each row
 execute function public.fishing_set_catch_logs_updated_at();
+
+alter table public.fishing_catch_logs add column if not exists owner_is_anonymous boolean not null default false;
+alter table public.fishing_catch_logs add column if not exists angler_key text;
+alter table public.fishing_catch_logs add column if not exists water_type text;
+alter table public.fishing_catch_logs add column if not exists share_angler_name boolean not null default true;
