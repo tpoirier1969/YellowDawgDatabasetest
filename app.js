@@ -1,4 +1,4 @@
-const APP_VERSION='v10.12';
+const APP_VERSION='v10.13';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
@@ -10,6 +10,7 @@ const DEFAULT_ZOOM=9;
 const DEFAULT_LOG_ZOOM=14;
 const DEFAULT_ANGLER_SETTINGS={name:localStorage.getItem('fishingLogbook.currentAngler')||localStorage.getItem('fishMap.currentAngler')||'Tod', key:'', shareName:true, locationShareLevel:'Water Type Only'};
 const COLOR_OPTIONS=['Black','Brown','Chartreuse','Cinnamon','Copper','Cream','Dun','Flash','Gold','Gray','Green','Olive','Orange','Peacock','Pearl','Pink','Purple','Red','Silver','Tan','White','Yellow'];
+const ANGLER_MARKER_COLORS=['#2563eb','#dc2626','#16a34a','#ea580c','#7c3aed','#0891b2','#c026d3','#65a30d','#b45309','#be123c','#0f766e','#4f46e5'];
 const DEFAULT_FISHING_SUPABASE_CONFIG={url:'',anonKey:'',table:'fishing_catch_logs',appId:'fishing_logbook_shared',autoSyncOnLoad:true,autoSyncOnSave:true};
 const FLY_TYPES=['Dry','Nymph','Streamer','Emerger','Wet Fly','Terrestrial','Other'];
 const LURE_TYPES=['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'];
@@ -87,6 +88,38 @@ function hasMarker(entry){
 
 function getEntryBaitLabel(entry={}){
   return entry.baitName || entry.baitSubtype || entry.baitType || '—';
+}
+
+function getAnglerMarkerSeed(entry={}){
+  return String(entry.anglerKey || entry.owner || 'anonymous');
+}
+
+function getAnglerMarkerColor(entry={}){
+  const seed=getAnglerMarkerSeed(entry);
+  let hash=0;
+  for(let i=0;i<seed.length;i+=1){
+    hash=((hash<<5)-hash)+seed.charCodeAt(i);
+    hash|=0;
+  }
+  return ANGLER_MARKER_COLORS[Math.abs(hash)%ANGLER_MARKER_COLORS.length];
+}
+
+function getAnglerMarkerInitial(entry={}){
+  const label=String(entry.owner || '').trim() || 'A';
+  const match=label.match(/[A-Za-z0-9]/);
+  return (match ? match[0] : 'A').toUpperCase();
+}
+
+function createAnglerMarkerIcon(entry={}){
+  const color=getAnglerMarkerColor(entry);
+  const initial=escapeHtml(getAnglerMarkerInitial(entry));
+  return L.divIcon({
+    className:'fishingAnglerMarkerWrap',
+    html:`<div class="fishingAnglerMarker" style="background:${color};">${initial}</div>`,
+    iconSize:[26,26],
+    iconAnchor:[13,13],
+    popupAnchor:[0,-14]
+  });
 }
 
 
@@ -1076,10 +1109,10 @@ function render(){
   state.markerCluster.clearLayers();
   visible.forEach(entry=>{
     if(!hasMarker(entry)) return;
-    const marker=L.marker([entry.marker.lat,entry.marker.lng]);
+    const marker=L.marker([entry.marker.lat,entry.marker.lng],{icon:createAnglerMarkerIcon(entry)});
     const waypointLine=entry.waypointName ? `<br>${escapeHtml(entry.waypointName)}` : '';
     const coordLine=`<br>${escapeHtml(formatCoord(entry.marker.lat))}, ${escapeHtml(formatCoord(entry.marker.lng))}`;
-    marker.bindPopup(`<div><strong>${escapeHtml(entry.waterName)}</strong>${waypointLine}<br>${escapeHtml(entry.species)}${entry.sizeInches!=null ? ' · ' + escapeHtml(String(entry.sizeInches)) + '"' : ''}${entry.quantity!=null ? ' · Qty ' + escapeHtml(String(entry.quantity)) : ''}<br>${escapeHtml(getEntryBaitLabel(entry))}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${escapeHtml(entry.baitType)}${coordLine}</div>`);
+    marker.bindPopup(`<div><strong>${escapeHtml(getSharedOwnerLabel(entry))}</strong><br>${escapeHtml(entry.waterName)}${waypointLine}<br>${escapeHtml(entry.species)}${entry.sizeInches!=null ? ' · ' + escapeHtml(String(entry.sizeInches)) + '"' : ''}${entry.quantity!=null ? ' · Qty ' + escapeHtml(String(entry.quantity)) : ''}<br>${escapeHtml(getEntryBaitLabel(entry))}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${escapeHtml(entry.baitType)}${coordLine}</div>`);
     state.markerCluster.addLayer(marker);
   });
 
