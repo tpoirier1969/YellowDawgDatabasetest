@@ -1,4 +1,4 @@
-const APP_VERSION='v10.13';
+const APP_VERSION='v10.14';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
@@ -113,12 +113,17 @@ function getAnglerMarkerInitial(entry={}){
 function createAnglerMarkerIcon(entry={}){
   const color=getAnglerMarkerColor(entry);
   const initial=escapeHtml(getAnglerMarkerInitial(entry));
-  return L.divIcon({
-    className:'fishingAnglerMarkerWrap',
-    html:`<div class="fishingAnglerMarker" style="background:${color};">${initial}</div>`,
-    iconSize:[26,26],
-    iconAnchor:[13,13],
-    popupAnchor:[0,-14]
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="30" height="42" viewBox="0 0 30 42" aria-hidden="true">
+    <path d="M15 1C7.3 1 1 7.3 1 15c0 10.4 12.2 24.1 13 25 .3.4.8.4 1.1 0 .8-.9 13-14.6 13-25C29 7.3 22.7 1 15 1z" fill="${color}" stroke="white" stroke-width="2"/>
+    <circle cx="15" cy="15" r="8" fill="rgba(255,255,255,0.14)"/>
+    <text x="15" y="19" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="white">${initial}</text>
+  </svg>`;
+  return L.icon({
+    iconUrl:`data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    iconSize:[30,42],
+    iconAnchor:[15,41],
+    popupAnchor:[0,-34],
+    className:'fishingAnglerMarkerIcon'
   });
 }
 
