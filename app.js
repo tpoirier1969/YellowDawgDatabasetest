@@ -1,4 +1,4 @@
-const APP_VERSION='v10.10';
+const APP_VERSION='v10.11';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
 const OVERPASS_URL='https://overpass-api.de/api/interpreter';
@@ -129,9 +129,17 @@ function getFishingSupabaseConfig(){
   };
 }
 
-function cloudIsConfigured(){
+function getCloudConfigDiagnostics(){
   const cfg=getFishingSupabaseConfig();
-  return !!(cfg.url && cfg.anonKey && window.supabase && typeof window.supabase.createClient==='function');
+  const missing=[];
+  if(!cfg.url) missing.push('Supabase project URL');
+  if(!cfg.anonKey) missing.push('publishable/anon key');
+  if(!(window.supabase && typeof window.supabase.createClient==='function')) missing.push('Supabase JavaScript library');
+  return {cfg, missing, configured: missing.length===0};
+}
+
+function cloudIsConfigured(){
+  return getCloudConfigDiagnostics().configured;
 }
 
 function formatCloudSyncTime(value=''){
@@ -380,7 +388,8 @@ async function syncCloud({quiet=false}={}){
   if(!state.cloud.ready){
     const ok=await initCloud({syncOnLoad:false});
     if(!ok){
-      if(!quiet) alert('Cloud sync is not configured yet. Add your Supabase URL and anon/publishable key in supabase-config.js.');
+      const diag=getCloudConfigDiagnostics();
+      if(!quiet) alert('Cloud sync is not ready. Missing: ' + (diag.missing.length ? diag.missing.join(', ') : 'unknown item') + '.');
       return false;
     }
   }
@@ -1290,8 +1299,12 @@ $('filterBtn').addEventListener('click',()=>{
   closeSheet($('reviewSheet'));
 });
 $('cloudBtn').addEventListener('click', async ()=>{
-  if(!cloudIsConfigured()) {
-    alert('Cloud is not configured yet. Open supabase-config.js and paste in your Supabase project URL plus your publishable key (or legacy anon key). Then run supabase-setup.sql in the Supabase SQL Editor.');
+  const diag=getCloudConfigDiagnostics();
+  if(!diag.configured) {
+    const message=diag.missing.length
+      ? 'Cloud setup is incomplete. Missing: ' + diag.missing.join(', ') + '. Check supabase-config.js and make sure the page can load the Supabase JS library.'
+      : 'Cloud setup is incomplete.';
+    alert(message);
     return;
   }
   await syncCloud({quiet:false});

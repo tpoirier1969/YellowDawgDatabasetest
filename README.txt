@@ -1,4 +1,4 @@
-Fishing Logbook v10.10
+Fishing Logbook v10.11
 
 What changed
 - colors now load alphabetically in the log form and filter sheet
