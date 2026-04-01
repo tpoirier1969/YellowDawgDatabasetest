@@ -1,4 +1,4 @@
-const APP_VERSION='v10.14';
+const APP_VERSION='v10.18';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
@@ -314,7 +314,14 @@ function mergeEntries(localEntries=[], remoteEntries=[]){
     }
     const priorStamp=Date.parse(prior.createdAt || 0) || 0;
     const entryStamp=Date.parse(entry.createdAt || 0) || 0;
-    if(entryStamp>=priorStamp) mapById.set(entry.id, entry);
+    const winner=entryStamp>=priorStamp ? entry : prior;
+    const loser=winner===entry ? prior : entry;
+    if(!hasMarker(winner) && hasMarker(loser)){
+      winner.marker={...loser.marker};
+      if((winner.locationSource || '').trim()==='') winner.locationSource=loser.locationSource || '';
+      if((winner.markerAccuracy==null || winner.markerAccuracy==='') && loser.markerAccuracy!=null) winner.markerAccuracy=loser.markerAccuracy;
+    }
+    mapById.set(entry.id, winner);
   });
   return [...mapById.values()].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
 }

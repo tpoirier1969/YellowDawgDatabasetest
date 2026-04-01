@@ -1,4 +1,4 @@
-Fishing Logbook v10.11
+Fishing Logbook v10.18
 
 What changed
 - colors now load alphabetically in the log form and filter sheet
@@ -28,3 +28,8 @@ Notes
 - private-only logs stay on the device and are not pushed to the shared cloud table
 - shared logs downloaded from cloud may intentionally omit exact coordinates depending on the sharing choices made when they were saved
 - this starter still uses open RLS policies so every app user can read and write shared logs
+
+
+Hotfix
+- preserves local marker coordinates when cloud-shared rows omit exact coordinates for privacy
+- fixes map pins disappearing after cloud sync on the device that created the log
