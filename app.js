@@ -38,7 +38,7 @@ const state={
   currentDraftMeta:{source:'',accuracy:null},
   addMode:false,
   pendingLocationRequestId:0,
-  filters:{dateFrom:'',dateTo:'',species:'',color:'',sky:'',retrieveSpeed:''},
+  filters:{dateFrom:'',dateTo:'',species:'',color:'',baitType:'',waterType:'',timeOfDay:'',sky:'',retrieveSpeed:''},
   cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true}
 };
 
@@ -557,6 +557,12 @@ function populateSpeciesOptions(){
   setOptions($('filterSpecies'), MIDWEST_FISH_SPECIES, 'All');
   if(formValue && MIDWEST_FISH_SPECIES.includes(formValue)) $('species').value=formValue;
   if(filterValue && MIDWEST_FISH_SPECIES.includes(filterValue)) $('filterSpecies').value=filterValue;
+}
+
+function populateFilterDropdowns(){
+  const baitTypeValue=$('filterBaitType') ? $('filterBaitType').value : '';
+  setOptions($('filterBaitType'), ['Cut Bait','Fly','Live Bait','Lure'], 'All');
+  if(baitTypeValue && ['Cut Bait','Fly','Live Bait','Lure'].includes(baitTypeValue)) $('filterBaitType').value=baitTypeValue;
 }
 
 function setLabelText(labelEl, text){
@@ -1103,6 +1109,9 @@ function getFilteredEntries(){
     if(state.filters.dateTo && entry.date>state.filters.dateTo) return false;
     if(state.filters.species && entry.species!==state.filters.species) return false;
     if(state.filters.color && entry.mainColor!==state.filters.color) return false;
+    if(state.filters.baitType && entry.baitType!==state.filters.baitType) return false;
+    if(state.filters.waterType && entry.waterType!==state.filters.waterType) return false;
+    if(state.filters.timeOfDay && entry.timeOfDay!==state.filters.timeOfDay) return false;
     if(state.filters.sky && entry.skyCondition!==state.filters.sky) return false;
     if(state.filters.retrieveSpeed && entry.retrieveSpeed!==state.filters.retrieveSpeed) return false;
     return true;
@@ -1421,6 +1430,7 @@ function escapeHtml(v){
 $('date').value=new Date().toISOString().slice(0,10);
 populateSpeciesOptions();
 populateColorOptions();
+populateFilterDropdowns();
 refreshAnglerUi();
 $('anglerSetupBtn').addEventListener('click',()=>{ refreshAnglerUi(); openSheet($('anglerSheet')); closeSheet($('logSheet')); closeSheet($('reviewSheet')); closeSheet($('filterSheet')); });
 $('addLogBtn').addEventListener('click',beginAddLog);
@@ -1468,16 +1478,22 @@ $('resetFiltersBtn').addEventListener('click',()=>{
   $('filterDateTo').value='';
   $('filterSpecies').value='';
   $('filterColor').value='';
+  $('filterBaitType').value='';
+  $('filterWaterType').value='';
+  $('filterTimeOfDay').value='';
   $('filterSky').value='';
   $('filterRetrieveSpeed').value='';
-  state.filters={dateFrom:'',dateTo:'',species:'',color:'',sky:'',retrieveSpeed:''};
+  state.filters={dateFrom:'',dateTo:'',species:'',color:'',baitType:'',waterType:'',timeOfDay:'',sky:'',retrieveSpeed:''};
   render();
 });
-['filterDateFrom','filterDateTo','filterSpecies','filterColor','filterSky','filterRetrieveSpeed'].forEach(id=>$(id).addEventListener('change',()=>{
+['filterDateFrom','filterDateTo','filterSpecies','filterColor','filterBaitType','filterWaterType','filterTimeOfDay','filterSky','filterRetrieveSpeed'].forEach(id=>$(id).addEventListener('change',()=>{
   state.filters.dateFrom=$('filterDateFrom').value;
   state.filters.dateTo=$('filterDateTo').value;
   state.filters.species=$('filterSpecies').value;
   state.filters.color=$('filterColor').value;
+  state.filters.baitType=$('filterBaitType').value;
+  state.filters.waterType=$('filterWaterType').value;
+  state.filters.timeOfDay=$('filterTimeOfDay').value;
   state.filters.sky=$('filterSky').value;
   state.filters.retrieveSpeed=$('filterRetrieveSpeed').value;
   render();
