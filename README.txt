@@ -33,3 +33,9 @@ Notes
 Hotfix
 - preserves local marker coordinates when cloud-shared rows omit exact coordinates for privacy
 - fixes map pins disappearing after cloud sync on the device that created the log
+
+
+v10.19 notes:
+- Shared cloud logs now sync an approximate display point for map rendering on other devices.
+- The exact spot stays on the device that logged it when available.
+- Added fishing-icon.svg for favicon / app icon styling.

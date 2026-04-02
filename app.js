@@ -1,4 +1,4 @@
-const APP_VERSION='v10.18';
+const APP_VERSION='v10.19';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
@@ -84,6 +84,68 @@ function populateColorOptions(){
 
 function hasMarker(entry){
   return Number.isFinite(entry?.marker?.lat) && Number.isFinite(entry?.marker?.lng);
+}
+
+function hasSharedMarker(entry){
+  return Number.isFinite(entry?.sharedMarker?.lat) && Number.isFinite(entry?.sharedMarker?.lng);
+}
+
+function getDrawableMarker(entry){
+  if(hasMarker(entry)) return {point:entry.marker, exact:true};
+  if(hasSharedMarker(entry)) return {point:entry.sharedMarker, exact:false};
+  return null;
+}
+
+function isSharedDisplaySource(value=''){
+  return String(value || '').startsWith('shared-display');
+}
+
+function clamp(value,min,max){
+  return Math.min(max, Math.max(min, value));
+}
+
+function hashSeedToUnit(seed=''){
+  let hash=2166136261;
+  const text=String(seed || '');
+  for(let i=0;i<text.length;i+=1){
+    hash^=text.charCodeAt(i);
+    hash=Math.imul(hash,16777619);
+  }
+  return ((hash>>>0)%1000000)/1000000;
+}
+
+function getSharedPointProfile(waterType='', shareLocationLevel='Water Type Only'){
+  const type=String(waterType || '').trim() || 'Lake';
+  const level=normalizeLocationShareLevel(shareLocationLevel);
+  const fine=level==='Body of Water Name';
+  switch(type){
+    case 'Stream': return fine ? {latStep:0.06,lngStep:0.08,offsetFrac:0.18} : {latStep:0.22,lngStep:0.28,offsetFrac:0.28};
+    case 'River': return fine ? {latStep:0.08,lngStep:0.10,offsetFrac:0.18} : {latStep:0.26,lngStep:0.34,offsetFrac:0.28};
+    case 'Pond': return fine ? {latStep:0.015,lngStep:0.02,offsetFrac:0.12} : {latStep:0.08,lngStep:0.10,offsetFrac:0.22};
+    case 'Great Lake': return fine ? {latStep:0.18,lngStep:0.24,offsetFrac:0.16} : {latStep:0.45,lngStep:0.60,offsetFrac:0.24};
+    case 'Lake':
+    default: return fine ? {latStep:0.04,lngStep:0.055,offsetFrac:0.16} : {latStep:0.18,lngStep:0.24,offsetFrac:0.24};
+  }
+}
+
+function buildSharedDisplayPoint(entry={}){
+  const lat=Number(entry?.marker?.lat);
+  const lng=Number(entry?.marker?.lng);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const waterType=determineWaterType({waterName:entry.waterName, candidateType:entry.waterType, lat, lng}) || entry.waterType || 'Lake';
+  const level=normalizeLocationShareLevel(entry.shareLocationLevel || state.angler.locationShareLevel || 'Water Type Only');
+  const profile=getSharedPointProfile(waterType, level);
+  const latIndex=Math.floor(lat / profile.latStep);
+  const lngIndex=Math.floor(lng / profile.lngStep);
+  const baseLat=(latIndex * profile.latStep) + (profile.latStep / 2);
+  const baseLng=(lngIndex * profile.lngStep) + (profile.lngStep / 2);
+  const seedBase=[entry.waterName || '', waterType, level, entry.owner || '', entry.anglerKey || '', entry.id || ''].join('|');
+  const latShift=(hashSeedToUnit(seedBase + '|lat') - 0.5) * profile.latStep * profile.offsetFrac;
+  const lngShift=(hashSeedToUnit(seedBase + '|lng') - 0.5) * profile.lngStep * profile.offsetFrac;
+  return {
+    lat:clamp(baseLat + latShift, (latIndex * profile.latStep) + (profile.latStep * 0.1), (latIndex * profile.latStep) + (profile.latStep * 0.9)),
+    lng:clamp(baseLng + lngShift, (lngIndex * profile.lngStep) + (profile.lngStep * 0.1), (lngIndex * profile.lngStep) + (profile.lngStep * 0.9))
+  };
 }
 
 function getEntryBaitLabel(entry={}){
@@ -263,6 +325,7 @@ function updateCloudUi(){
 
 function normalizeEntry(entry={}){
   const marker=entry.marker && typeof entry.marker==='object' ? entry.marker : {};
+  const sharedMarker=entry.sharedMarker && typeof entry.sharedMarker==='object' ? entry.sharedMarker : {};
   return {
     ...entry,
     id:String(entry.id || getSafeRandomId()),
@@ -294,6 +357,10 @@ function normalizeEntry(entry={}){
     marker:{
       lat:marker.lat==='' || marker.lat==null || !Number.isFinite(Number(marker.lat)) ? null : Number(marker.lat),
       lng:marker.lng==='' || marker.lng==null || !Number.isFinite(Number(marker.lng)) ? null : Number(marker.lng)
+    },
+    sharedMarker:{
+      lat:sharedMarker.lat==='' || sharedMarker.lat==null || !Number.isFinite(Number(sharedMarker.lat)) ? null : Number(sharedMarker.lat),
+      lng:sharedMarker.lng==='' || sharedMarker.lng==null || !Number.isFinite(Number(sharedMarker.lng)) ? null : Number(sharedMarker.lng)
     }
   };
 }
@@ -316,11 +383,24 @@ function mergeEntries(localEntries=[], remoteEntries=[]){
     const entryStamp=Date.parse(entry.createdAt || 0) || 0;
     const winner=entryStamp>=priorStamp ? entry : prior;
     const loser=winner===entry ? prior : entry;
+
     if(!hasMarker(winner) && hasMarker(loser)){
       winner.marker={...loser.marker};
       if((winner.locationSource || '').trim()==='') winner.locationSource=loser.locationSource || '';
       if((winner.markerAccuracy==null || winner.markerAccuracy==='') && loser.markerAccuracy!=null) winner.markerAccuracy=loser.markerAccuracy;
     }
+
+    if(!hasSharedMarker(winner) && hasSharedMarker(loser)){
+      winner.sharedMarker={...loser.sharedMarker};
+    }
+
+    if(isSharedDisplaySource(winner.locationSource) && hasMarker(loser) && !isSharedDisplaySource(loser.locationSource)){
+      winner.sharedMarker=hasSharedMarker(winner) ? {...winner.sharedMarker} : (hasMarker(winner) ? {...winner.marker} : {lat:null,lng:null});
+      winner.marker={...loser.marker};
+      winner.locationSource=loser.locationSource || winner.locationSource;
+      if((winner.markerAccuracy==null || winner.markerAccuracy==='') && loser.markerAccuracy!=null) winner.markerAccuracy=loser.markerAccuracy;
+    }
+
     mapById.set(entry.id, winner);
   });
   return [...mapById.values()].sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
@@ -330,10 +410,11 @@ function entryToCloudRow(entry){
   const shareLocationLevel=normalizeLocationShareLevel(entry.shareLocationLevel || state.angler.locationShareLevel || 'Water Type Only');
   const sharedWaterName=getSharedWaterLabel(entry);
   const sharedWaterType=determineWaterType({waterName:entry.waterName, candidateType:entry.waterType, lat:entry?.marker?.lat, lng:entry?.marker?.lng});
-  let sharedLat=null;
-  let sharedLng=null;
-  let sharedWaypointName=null;
-  let sharedLocationSource=shareLocationLevel==='Body of Water Name' ? 'body-of-water-name' : 'water-type-only';
+  const sharedPoint=buildSharedDisplayPoint(entry);
+  let sharedLat=sharedPoint ? Number(sharedPoint.lat.toFixed(6)) : null;
+  let sharedLng=sharedPoint ? Number(sharedPoint.lng.toFixed(6)) : null;
+  let sharedWaypointName=shareLocationLevel==='Body of Water Name' ? (entry.waypointName || null) : null;
+  let sharedLocationSource=shareLocationLevel==='Body of Water Name' ? 'shared-display-body-of-water' : 'shared-display-water-type';
   let sharedAccuracy=null;
 
   return {
@@ -428,7 +509,8 @@ function cloudRowToEntry(row){
     countyName:row.county_name || '',
     stateName:row.state_name || '',
     markerAccuracy:row.marker_accuracy,
-    marker:{lat:row.marker_lat==null ? null : Number(row.marker_lat), lng:row.marker_lng==null ? null : Number(row.marker_lng)}
+    marker:{lat:null, lng:null},
+    sharedMarker:{lat:row.marker_lat==null ? null : Number(row.marker_lat), lng:row.marker_lng==null ? null : Number(row.marker_lng)}
   });
 }
 
@@ -1129,11 +1211,14 @@ function render(){
   const visible=getFilteredEntries();
   state.markerCluster.clearLayers();
   visible.forEach(entry=>{
-    if(!hasMarker(entry)) return;
-    const marker=L.marker([entry.marker.lat,entry.marker.lng],{icon:createAnglerMarkerIcon(entry)});
-    const waypointLine=entry.waypointName ? `<br>${escapeHtml(entry.waypointName)}` : '';
-    const coordLine=`<br>${escapeHtml(formatCoord(entry.marker.lat))}, ${escapeHtml(formatCoord(entry.marker.lng))}`;
-    marker.bindPopup(`<div><strong>${escapeHtml(getSharedOwnerLabel(entry))}</strong><br>${escapeHtml(entry.waterName)}${waypointLine}<br>${escapeHtml(entry.species)}${entry.sizeInches!=null ? ' · ' + escapeHtml(String(entry.sizeInches)) + '"' : ''}${entry.quantity!=null ? ' · Qty ' + escapeHtml(String(entry.quantity)) : ''}<br>${escapeHtml(getEntryBaitLabel(entry))}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${escapeHtml(entry.baitType)}${coordLine}</div>`);
+    const drawable=getDrawableMarker(entry);
+    if(!drawable) return;
+    const marker=L.marker([drawable.point.lat,drawable.point.lng],{icon:createAnglerMarkerIcon(entry)});
+    const sharedLevel=normalizeLocationShareLevel(entry.shareLocationLevel);
+    const waterLine=escapeHtml(getSharedWaterLabel(entry));
+    const waypointLine=drawable.exact && entry.waypointName && sharedLevel==='Body of Water Name' ? `<br>${escapeHtml(entry.waypointName)}` : '';
+    const coordLine=drawable.exact ? `<br>${escapeHtml(formatCoord(drawable.point.lat))}, ${escapeHtml(formatCoord(drawable.point.lng))}` : '<br>Approximate shared area';
+    marker.bindPopup(`<div><strong>${escapeHtml(getSharedOwnerLabel(entry))}</strong><br>${waterLine}${waypointLine}<br>${escapeHtml(entry.species)}${entry.sizeInches!=null ? ' · ' + escapeHtml(String(entry.sizeInches)) + '"' : ''}${entry.quantity!=null ? ' · Qty ' + escapeHtml(String(entry.quantity)) : ''}<br>${escapeHtml(getEntryBaitLabel(entry))}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${escapeHtml(entry.baitType)}${coordLine}</div>`);
     state.markerCluster.addLayer(marker);
   });
 
@@ -1361,7 +1446,7 @@ function refreshAnglerUi(){
 
 function refreshSharingSummary(){
   const displayName=state.angler.shareName===false ? 'Anonymous' : (state.angler.name || 'Anonymous');
-  if($('sharingSummaryBox')) $('sharingSummaryBox').textContent=`All logs are shared. Current device setup: ${displayName} · ${normalizeLocationShareLevel(state.angler.locationShareLevel)}. Fish details, bait, conditions, and notes are shared; only location depth changes.`;
+  if($('sharingSummaryBox')) $('sharingSummaryBox').textContent=`All logs are shared. Current device setup: ${displayName} · ${normalizeLocationShareLevel(state.angler.locationShareLevel)}. Fish details, bait, conditions, and notes are shared; map sharing uses an approximate display point while keeping the exact local spot on the device that logged it.`;
   if($('sharePreview')) $('sharePreview').value=`${displayName} · ${normalizeLocationShareLevel(state.angler.locationShareLevel)}`;
 }
 
