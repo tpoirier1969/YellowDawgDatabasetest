@@ -1,4 +1,4 @@
-const APP_VERSION='v10.29';
+const APP_VERSION='v10.30';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -808,9 +808,10 @@ function setLabelText(labelEl, text){
 function syncAddLogButton(){
   const btn=$('addLogBtn');
   if(!btn) return;
-  btn.textContent=state.addMode ? 'Tap Map to Set Spot' : 'Add Log';
-  btn.classList.toggle('primary', !state.addMode);
+  btn.textContent='Add Log';
+  btn.classList.add('primary');
 }
+
 
 function setMapPickVisuals(isActive){
   const mapEl=document.getElementById('map');
@@ -839,24 +840,17 @@ function beginAddLog(){
   cancelAddMode();
   closeSheet($('reviewSheet'));
   closeSheet($('filterSheet'));
+  closeSheet($('anglerSheet'));
+  closeSheet($('predictSheet'));
+  openSheet($('logSheet'));
   if(state.currentDraftMarker){
-    openSheet($('logSheet'));
     const ll=state.currentDraftMarker.getLatLng();
     updateLocationSummary(ll.lat, ll.lng, state.currentDraftMeta.accuracy, state.currentDraftMeta.source);
     $('waterLookupStatus').textContent='Spot already set. You can use your location again, drag the marker, or pick a new spot on the map.';
-    setStatus('Log opened with your current spot.', 2600);
-    return;
-  }
-  closeSheet($('logSheet'));
-  if(supportsGeolocation()){
-    $('waterLookupStatus').textContent='Getting your device location before opening the log...';
-    setStatus('Getting your location...', 2600);
-    useCurrentLocation({auto:true, confirmBeforeOpen:true});
   }else{
-    openSheet($('logSheet'));
-    $('waterLookupStatus').textContent='This browser does not support device location here. Use Pick on Map.';
-    setStatus('Use Pick on Map to set the spot.', 3200);
+    $('waterLookupStatus').textContent='Use My Location or Pick on Map to set the fishing spot before saving.';
   }
+  setStatus('Log opened. Set the spot with Use My Location or Pick on Map.', 3200);
 }
 
 async function finishMapPick(lat,lng){
@@ -882,35 +876,49 @@ function detachMapPickHandlers(){
   if(state._mapPickDomHandler){
     map.getContainer().removeEventListener('click', state._mapPickDomHandler, true);
     map.getContainer().removeEventListener('pointerup', state._mapPickDomHandler, true);
+    map.getContainer().removeEventListener('touchend', state._mapPickDomHandler, true);
+    map.getContainer().removeEventListener('mouseup', state._mapPickDomHandler, true);
     state._mapPickDomHandler=null;
   }
 }
 
 function armMapPickHandlers(){
   detachMapPickHandlers();
+  const done=async (lat,lng)=>{
+    if(!state.pickOnMapArmed) return;
+    await finishMapPick(lat,lng);
+  };
   state._mapPickLeafletHandler=async event=>{
     if(!state.pickOnMapArmed) return;
     if(!event || !event.latlng) return;
-    await finishMapPick(event.latlng.lat,event.latlng.lng);
+    await done(event.latlng.lat,event.latlng.lng);
   };
-  map.on('click', state._mapPickLeafletHandler);
+  map.once('click', state._mapPickLeafletHandler);
 
   state._mapPickDomHandler=async event=>{
     if(!state.pickOnMapArmed) return;
-    if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!=0) return;
-    const rect=map.getContainer().getBoundingClientRect();
-    const clientX=('clientX' in event) ? event.clientX : null;
-    const clientY=('clientY' in event) ? event.clientY : null;
-    if(!Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
-    const point=L.point(clientX-rect.left, clientY-rect.top);
-    const ll=map.containerPointToLatLng(point);
+    if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!==0) return;
+    let ll=null;
+    try{
+      ll=map.mouseEventToLatLng(event);
+    }catch(_err){
+      const rect=map.getContainer().getBoundingClientRect();
+      const clientX=('clientX' in event) ? event.clientX : null;
+      const clientY=('clientY' in event) ? event.clientY : null;
+      if(Number.isFinite(clientX) && Number.isFinite(clientY)){
+        const point=L.point(clientX-rect.left, clientY-rect.top);
+        ll=map.containerPointToLatLng(point);
+      }
+    }
     if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
     event.preventDefault();
     event.stopPropagation();
-    await finishMapPick(ll.lat,ll.lng);
+    await done(ll.lat,ll.lng);
   };
-  map.getContainer().addEventListener('click', state._mapPickDomHandler, true);
-  map.getContainer().addEventListener('pointerup', state._mapPickDomHandler, true);
+  const container=map.getContainer();
+  container.addEventListener('pointerup', state._mapPickDomHandler, true);
+  container.addEventListener('touchend', state._mapPickDomHandler, true);
+  container.addEventListener('mouseup', state._mapPickDomHandler, true);
 }
 
 function beginPickOnMap(){
@@ -918,14 +926,15 @@ function beginPickOnMap(){
   state.addMode=true;
   state.pickOnMapArmed=true;
   syncAddLogButton();
-  closeAllSheets();
+  closeSheet($('logSheet'));
+  closeSheet($('reviewSheet'));
+  closeSheet($('filterSheet'));
+  closeSheet($('anglerSheet'));
+  closeSheet($('predictSheet'));
   armMapPickHandlers();
   setMapPickVisuals(true);
-  $('waterLookupStatus').textContent=state.currentDraftMarker ? 'Tap the map once to move the spot.' : 'Tap the map to set a fishing spot.';
-  setStatus(state.currentDraftMarker ? 'Tap the map once to move the spot.' : 'Tap the map to set a fishing spot.', 5200);
-  setTimeout(()=>{ map.invalidateSize(); }, 30);
-  if(state._mapPickFallbackTimer) clearTimeout(state._mapPickFallbackTimer);
-  state._mapPickFallbackTimer=setTimeout(()=>{ state._mapPickFallbackTimer=null; }, 1500);
+  setStatus(state.currentDraftMarker ? 'Pick on Map is active. Tap the map once to move the spot.' : 'Pick on Map is active. Tap the map once to set the spot.', 7000);
+  setTimeout(()=>{ try{ map.invalidateSize(); }catch(_e){} }, 50);
 }
 
 function supportsGeolocation(){
