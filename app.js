@@ -1,4 +1,4 @@
-const APP_VERSION='v10.24';
+const APP_VERSION='v10.25';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
@@ -842,11 +842,10 @@ function beginPickOnMap(){
   state.pendingLocationRequestId+=1;
   state.addMode=true;
   syncAddLogButton();
-  closeSheet($('logSheet'));
-  closeSheet($('reviewSheet'));
-  closeSheet($('filterSheet'));
+  closeAllSheets();
   $('waterLookupStatus').textContent=state.currentDraftMarker ? 'Tap the map once to move the spot.' : 'Tap the map to set a fishing spot.';
   setStatus(state.currentDraftMarker ? 'Tap the map once to move the spot.' : 'Tap the map to set a fishing spot.', 5200);
+  setTimeout(()=>map.invalidateSize(), 30);
 }
 
 function supportsGeolocation(){
@@ -1567,6 +1566,22 @@ function closeSheet(el){
   el.setAttribute('aria-hidden','true');
 }
 
+function closeAllSheets(){
+  ['logSheet','anglerSheet','reviewSheet','predictSheet','filterSheet'].forEach(id=>closeSheet($(id)));
+}
+
+function wireGenericSheetCloseButtons(){
+  document.querySelectorAll('.sheetClose').forEach(btn=>{
+    btn.addEventListener('click', event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      const sheet=btn.closest('.sheet');
+      if(sheet) closeSheet(sheet);
+      if(sheet && sheet.id==='logSheet') cancelAddMode();
+    });
+  });
+}
+
 function setStatus(message, duration=2600){
   $('statusBadge').textContent=message;
   $('statusBadge').classList.remove('hidden');
@@ -1681,6 +1696,7 @@ function escapeHtml(v){
 }
 
 $('date').value=new Date().toISOString().slice(0,10);
+wireGenericSheetCloseButtons();
 populateSpeciesOptions();
 populateColorOptions();
 populateFilterDropdowns();
@@ -1689,15 +1705,13 @@ $('anglerSetupBtn').addEventListener('click',()=>{ refreshAnglerUi(); openSheet(
 $('addLogBtn').addEventListener('click',beginAddLog);
 $('reviewBtn').addEventListener('click',()=>{
   cancelAddMode();
+  closeAllSheets();
   openSheet($('reviewSheet'));
-  closeSheet($('logSheet'));
-  closeSheet($('filterSheet'));
 });
 $('filterBtn').addEventListener('click',()=>{
   cancelAddMode();
+  closeAllSheets();
   openSheet($('filterSheet'));
-  closeSheet($('logSheet'));
-  closeSheet($('reviewSheet'));
 });
 $('cloudBtn').addEventListener('click', async ()=>{
   const diag=getCloudConfigDiagnostics();
@@ -1728,7 +1742,7 @@ setOptions($('predictSpecies'), MIDWEST_FISH_SPECIES, 'Choose one');
     render();
   });
 });
-$('closeReviewSheetBtn').addEventListener('click',()=>closeSheet($('reviewSheet')));
+$('closeReviewSheetBtn').addEventListener('click',event=>{ event.preventDefault(); event.stopPropagation(); closeSheet($('reviewSheet')); });
 
 $('closeFilterSheetBtn').addEventListener('click',()=>closeSheet($('filterSheet')));
 $('anglerForm').addEventListener('submit', saveAnglerSettingsFromForm);
@@ -1810,9 +1824,8 @@ map.on('click',async event=>{
   if(!state.addMode) return;
   cancelAddMode();
   setDraftMarker(event.latlng.lat,event.latlng.lng,{source:'map',accuracy:null,recenter:false});
+  closeAllSheets();
   openSheet($('logSheet'));
-  closeSheet($('reviewSheet'));
-  closeSheet($('filterSheet'));
   $('waterLookupStatus').textContent='Map spot set. Checking nearby water...';
   await detectNearbyWater(event.latlng.lat,event.latlng.lng);
   setStatus('Spot set from map. Fill out the log and save it.', 3600);
