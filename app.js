@@ -1,4 +1,4 @@
-const APP_VERSION='v10.28';
+const APP_VERSION='v10.29';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -127,7 +127,10 @@ const state={
   currentDraftMarker:null,
   currentDraftMeta:{source:'',accuracy:null},
   addMode:false,
+  pickOnMapArmed:false,
   pendingLocationRequestId:0,
+  _mapPickLeafletHandler:null,
+  _mapPickDomHandler:null,
   filters:{dateFrom:'',dateTo:'',species:'',color:'',baitType:'',waterType:'',timeOfDay:'',sky:'',retrieveSpeed:''},
   cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true}
 };
@@ -821,6 +824,7 @@ function disarmMapPick(){
     clearTimeout(state._mapPickFallbackTimer);
     state._mapPickFallbackTimer=null;
   }
+  detachMapPickHandlers();
   setMapPickVisuals(false);
 }
 
@@ -857,13 +861,56 @@ function beginAddLog(){
 
 async function finishMapPick(lat,lng){
   if(!state.pickOnMapArmed && !state.addMode) return;
+  if(!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))){
+    setStatus('Map pick failed. Tap the map again.', 3200);
+    return;
+  }
   cancelAddMode();
-  setDraftMarker(lat,lng,{source:'map',accuracy:null,recenter:false});
+  setDraftMarker(Number(lat),Number(lng),{source:'map',accuracy:null,recenter:false});
   closeAllSheets();
   openSheet($('logSheet'));
   $('waterLookupStatus').textContent='Map spot set. Checking nearby water...';
-  await detectNearbyWater(lat,lng);
+  await detectNearbyWater(Number(lat),Number(lng));
   setStatus('Spot set from map. Fill out the log and save it.', 3600);
+}
+
+function detachMapPickHandlers(){
+  if(state._mapPickLeafletHandler){
+    map.off('click', state._mapPickLeafletHandler);
+    state._mapPickLeafletHandler=null;
+  }
+  if(state._mapPickDomHandler){
+    map.getContainer().removeEventListener('click', state._mapPickDomHandler, true);
+    map.getContainer().removeEventListener('pointerup', state._mapPickDomHandler, true);
+    state._mapPickDomHandler=null;
+  }
+}
+
+function armMapPickHandlers(){
+  detachMapPickHandlers();
+  state._mapPickLeafletHandler=async event=>{
+    if(!state.pickOnMapArmed) return;
+    if(!event || !event.latlng) return;
+    await finishMapPick(event.latlng.lat,event.latlng.lng);
+  };
+  map.on('click', state._mapPickLeafletHandler);
+
+  state._mapPickDomHandler=async event=>{
+    if(!state.pickOnMapArmed) return;
+    if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!=0) return;
+    const rect=map.getContainer().getBoundingClientRect();
+    const clientX=('clientX' in event) ? event.clientX : null;
+    const clientY=('clientY' in event) ? event.clientY : null;
+    if(!Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
+    const point=L.point(clientX-rect.left, clientY-rect.top);
+    const ll=map.containerPointToLatLng(point);
+    if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    await finishMapPick(ll.lat,ll.lng);
+  };
+  map.getContainer().addEventListener('click', state._mapPickDomHandler, true);
+  map.getContainer().addEventListener('pointerup', state._mapPickDomHandler, true);
 }
 
 function beginPickOnMap(){
@@ -872,6 +919,7 @@ function beginPickOnMap(){
   state.pickOnMapArmed=true;
   syncAddLogButton();
   closeAllSheets();
+  armMapPickHandlers();
   setMapPickVisuals(true);
   $('waterLookupStatus').textContent=state.currentDraftMarker ? 'Tap the map once to move the spot.' : 'Tap the map to set a fishing spot.';
   setStatus(state.currentDraftMarker ? 'Tap the map once to move the spot.' : 'Tap the map to set a fishing spot.', 5200);
@@ -1736,6 +1784,23 @@ function escapeHtml(v){
 
 $('date').value=new Date().toISOString().slice(0,10);
 wireGenericSheetCloseButtons();
+
+function rewireLocationButtons(){
+  const wire=(id, handler)=>{
+    const existing=$(id);
+    if(!existing) return;
+    const clone=existing.cloneNode(true);
+    existing.replaceWith(clone);
+    clone.addEventListener('click', event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      handler();
+    });
+  };
+  wire('useDeviceLocationBtn', ()=>useCurrentLocation());
+  wire('pickOnMapBtn', ()=>beginPickOnMap());
+}
+
 populateSpeciesOptions();
 populateColorOptions();
 populateFilterDropdowns();
@@ -1790,9 +1855,8 @@ $('copyAnglerKeyBtn').addEventListener('click', async ()=>{ const value=String($
 $('shareAnglerNameInput').addEventListener('change',()=>{ const demoName=String($('anglerNameInput').value || '').trim() || 'Anonymous'; $('anglerPreviewBox').textContent=`Shared as ${$('shareAnglerNameInput').value==='No' ? 'Anonymous' : demoName} · ${normalizeLocationShareLevel($('locationShareLevelInput').value)}`; });
 $('anglerNameInput').addEventListener('input',()=>{ const demoName=String($('anglerNameInput').value || '').trim() || 'Anonymous'; $('anglerPreviewBox').textContent=`Shared as ${$('shareAnglerNameInput').value==='No' ? 'Anonymous' : demoName} · ${normalizeLocationShareLevel($('locationShareLevelInput').value)}`; });
 $('locationShareLevelInput').addEventListener('change',()=>{ const demoName=String($('anglerNameInput').value || '').trim() || 'Anonymous'; $('anglerPreviewBox').textContent=`Shared as ${$('shareAnglerNameInput').value==='No' ? 'Anonymous' : demoName} · ${normalizeLocationShareLevel($('locationShareLevelInput').value)}`; });
-$('clearSpotBtn').addEventListener('click',clearDraftMarker);
-$('useDeviceLocationBtn').addEventListener('click',()=>useCurrentLocation());
-$('pickOnMapBtn').addEventListener('click',beginPickOnMap);
+$('clearSpotBtn').addEventListener('click',event=>{ event.preventDefault(); event.stopPropagation(); clearDraftMarker(); });
+rewireLocationButtons();
 $('resetFiltersBtn').addEventListener('click',()=>{
   $('filterDateFrom').value='';
   $('filterDateTo').value='';
@@ -1859,20 +1923,6 @@ $('waterName').addEventListener('input',()=>{
   refreshSharingSummary();
 });
 $('waterType').addEventListener('change',refreshSharingSummary);
-map.on('click', async event=>{
-  if(!state.pickOnMapArmed) return;
-  await finishMapPick(event.latlng.lat,event.latlng.lng);
-});
-
-map.getContainer().addEventListener('pointerup', async event=>{
-  if(!state.pickOnMapArmed) return;
-  if(event.pointerType==='mouse' && event.button!==0) return;
-  const rect=map.getContainer().getBoundingClientRect();
-  const point=L.point(event.clientX-rect.left, event.clientY-rect.top);
-  const ll=map.containerPointToLatLng(point);
-  if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
-  await finishMapPick(ll.lat,ll.lng);
-}, true);
 $('saveBtn').addEventListener('click',()=>{
   const missingField=validateLogForm();
   if(missingField) setStatus(`Missing or incomplete: ${missingField}.`, 3600);
