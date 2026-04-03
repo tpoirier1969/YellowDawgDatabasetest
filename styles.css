@@ -102,3 +102,6 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 
 #map.map-pick-armed { cursor: crosshair; }
 #map.map-pick-armed, #map.map-pick-armed * { touch-action: none; }
+
+.map-pick-overlay{position:fixed;z-index:900;display:none;background:transparent;touch-action:none;cursor:crosshair;}
+.map-pick-overlay.visible{display:block;pointer-events:auto;}

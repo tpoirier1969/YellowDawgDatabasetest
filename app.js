@@ -1,4 +1,4 @@
-const APP_VERSION='v10.32';
+const APP_VERSION='v10.33';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -840,6 +840,7 @@ function disarmMapPick(){
     clearTimeout(state._mapPickFallbackTimer);
     state._mapPickFallbackTimer=null;
   }
+  detachMapPickHandlers();
   setMapPickVisuals(false);
 }
 
@@ -883,66 +884,72 @@ async function finishMapPick(lat,lng){
   setStatus('Spot set from map. Fill out the log and save it.', 3600);
 }
 
+
 let _mapPickInitialized=false;
+function ensureMapPickOverlay(){
+  if(state.mapPickOverlay && document.body.contains(state.mapPickOverlay)) return state.mapPickOverlay;
+  const overlay=document.createElement('div');
+  overlay.id='mapPickOverlay';
+  overlay.className='map-pick-overlay';
+  overlay.setAttribute('aria-hidden','true');
+  document.body.appendChild(overlay);
+  state.mapPickOverlay=overlay;
+  return overlay;
+}
+
+function hideMapPickOverlay(){
+  const overlay=ensureMapPickOverlay();
+  overlay.classList.remove('visible');
+  overlay.setAttribute('aria-hidden','true');
+  overlay.style.pointerEvents='none';
+}
+
+function showMapPickOverlay(){
+  const overlay=ensureMapPickOverlay();
+  const mapEl=map.getContainer();
+  const rect=mapEl.getBoundingClientRect();
+  overlay.style.left=rect.left+'px';
+  overlay.style.top=rect.top+'px';
+  overlay.style.width=rect.width+'px';
+  overlay.style.height=rect.height+'px';
+  overlay.classList.add('visible');
+  overlay.setAttribute('aria-hidden','false');
+  overlay.style.pointerEvents='auto';
+}
+
+function detachMapPickHandlers(){
+  const overlay=state.mapPickOverlay;
+  if(overlay && state._mapPickOverlayHandler){
+    ['click','pointerup','touchend','mouseup'].forEach(type=>overlay.removeEventListener(type, state._mapPickOverlayHandler, true));
+  }
+  state._mapPickOverlayHandler=null;
+  hideMapPickOverlay();
+}
+
 function initializeMapPickHandlers(){
   if(_mapPickInitialized) return;
   _mapPickInitialized=true;
-
-  map.on('click', async event=>{
-    if(!state.pickOnMapArmed || !state.addMode) return;
-    if(!event || !event.latlng) return;
-    state._lastMapPickAt=Date.now();
-    await finishMapPick(event.latlng.lat, event.latlng.lng);
-  });
-
-  const fallbackHandler=async event=>{
-    if(!state.pickOnMapArmed || !state.addMode) return;
-    const now=Date.now();
-    if(state._lastMapPickAt && (now - state._lastMapPickAt) < 500) return;
-    if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!==0) return;
-    const ll=pointFromClientEvent(event);
-    if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    state._lastMapPickAt=Date.now();
-    await finishMapPick(ll.lat, ll.lng);
-  };
-
-  const container=map.getContainer();
-  container.addEventListener('pointerup', fallbackHandler, true);
-  container.addEventListener('touchend', fallbackHandler, true);
-  container.addEventListener('mouseup', fallbackHandler, true);
+  window.addEventListener('resize', ()=>{ if(state.pickOnMapArmed) showMapPickOverlay(); });
+  window.addEventListener('scroll', ()=>{ if(state.pickOnMapArmed) showMapPickOverlay(); }, true);
 }
-
 
 function armMapPickHandlers(){
   detachMapPickHandlers();
-  const done=async (lat,lng)=>{
-    if(!state.pickOnMapArmed) return;
-    await finishMapPick(lat,lng);
-  };
-
-  state._mapPickLeafletHandler=async event=>{
-    if(!state.pickOnMapArmed) return;
-    if(!event || !event.latlng) return;
-    await done(event.latlng.lat,event.latlng.lng);
-  };
-  map.once('click', state._mapPickLeafletHandler);
-
   const overlay=ensureMapPickOverlay();
   state._mapPickOverlayHandler=async event=>{
-    if(!state.pickOnMapArmed) return;
+    if(!state.pickOnMapArmed || !state.addMode) return;
     if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!==0) return;
-    const ll=pointFromClientEvent(event);
-    if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
     event.preventDefault();
     event.stopPropagation();
-    await done(ll.lat,ll.lng);
+    const ll=pointFromClientEvent(event);
+    if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)){
+      setStatus('Map pick failed. Tap the map again.', 3200);
+      return;
+    }
+    await finishMapPick(ll.lat,ll.lng);
   };
-  overlay.addEventListener('click', state._mapPickOverlayHandler, true);
-  overlay.addEventListener('pointerup', state._mapPickOverlayHandler, true);
-  overlay.addEventListener('touchend', state._mapPickOverlayHandler, true);
-  overlay.addEventListener('mouseup', state._mapPickOverlayHandler, true);
+  ['click','pointerup','touchend','mouseup'].forEach(type=>overlay.addEventListener(type, state._mapPickOverlayHandler, true));
+  showMapPickOverlay();
 }
 
 function beginPickOnMap(){
@@ -957,10 +964,12 @@ function beginPickOnMap(){
   closeSheet($('anglerSheet'));
   closeSheet($('predictSheet'));
   setMapPickVisuals(true);
+  armMapPickHandlers();
   setStatus(state.currentDraftMarker ? 'Pick on Map is active. Tap the map once to move the spot.' : 'Pick on Map is active. Tap the map once to set the spot.', 7000);
   $('waterLookupStatus').textContent='Pick on Map is active. Tap the map once to set the fishing spot.';
-  try{ map.invalidateSize(); }catch(_e){}
+  try{ map.invalidateSize(); showMapPickOverlay(); }catch(_e){}
 }
+
 
 function supportsGeolocation(){
   return typeof navigator!=='undefined' && !!navigator.geolocation;
