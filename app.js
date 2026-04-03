@@ -1,4 +1,4 @@
-const APP_VERSION='v10.27';
+const APP_VERSION='v10.28';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -809,8 +809,24 @@ function syncAddLogButton(){
   btn.classList.toggle('primary', !state.addMode);
 }
 
+function setMapPickVisuals(isActive){
+  const mapEl=document.getElementById('map');
+  if(!mapEl) return;
+  mapEl.style.cursor=isActive ? 'crosshair' : '';
+}
+
+function disarmMapPick(){
+  state.pickOnMapArmed=false;
+  if(state._mapPickFallbackTimer){
+    clearTimeout(state._mapPickFallbackTimer);
+    state._mapPickFallbackTimer=null;
+  }
+  setMapPickVisuals(false);
+}
+
 function cancelAddMode(message=''){
   state.addMode=false;
+  disarmMapPick();
   syncAddLogButton();
   if(message) setStatus(message, 3200);
 }
@@ -839,14 +855,29 @@ function beginAddLog(){
   }
 }
 
+async function finishMapPick(lat,lng){
+  if(!state.pickOnMapArmed && !state.addMode) return;
+  cancelAddMode();
+  setDraftMarker(lat,lng,{source:'map',accuracy:null,recenter:false});
+  closeAllSheets();
+  openSheet($('logSheet'));
+  $('waterLookupStatus').textContent='Map spot set. Checking nearby water...';
+  await detectNearbyWater(lat,lng);
+  setStatus('Spot set from map. Fill out the log and save it.', 3600);
+}
+
 function beginPickOnMap(){
   state.pendingLocationRequestId+=1;
   state.addMode=true;
+  state.pickOnMapArmed=true;
   syncAddLogButton();
   closeAllSheets();
+  setMapPickVisuals(true);
   $('waterLookupStatus').textContent=state.currentDraftMarker ? 'Tap the map once to move the spot.' : 'Tap the map to set a fishing spot.';
   setStatus(state.currentDraftMarker ? 'Tap the map once to move the spot.' : 'Tap the map to set a fishing spot.', 5200);
-  setTimeout(()=>map.invalidateSize(), 30);
+  setTimeout(()=>{ map.invalidateSize(); }, 30);
+  if(state._mapPickFallbackTimer) clearTimeout(state._mapPickFallbackTimer);
+  state._mapPickFallbackTimer=setTimeout(()=>{ state._mapPickFallbackTimer=null; }, 1500);
 }
 
 function supportsGeolocation(){
@@ -1828,16 +1859,20 @@ $('waterName').addEventListener('input',()=>{
   refreshSharingSummary();
 });
 $('waterType').addEventListener('change',refreshSharingSummary);
-map.on('click',async event=>{
-  if(!state.addMode) return;
-  cancelAddMode();
-  setDraftMarker(event.latlng.lat,event.latlng.lng,{source:'map',accuracy:null,recenter:false});
-  closeAllSheets();
-  openSheet($('logSheet'));
-  $('waterLookupStatus').textContent='Map spot set. Checking nearby water...';
-  await detectNearbyWater(event.latlng.lat,event.latlng.lng);
-  setStatus('Spot set from map. Fill out the log and save it.', 3600);
+map.on('click', async event=>{
+  if(!state.pickOnMapArmed) return;
+  await finishMapPick(event.latlng.lat,event.latlng.lng);
 });
+
+map.getContainer().addEventListener('pointerup', async event=>{
+  if(!state.pickOnMapArmed) return;
+  if(event.pointerType==='mouse' && event.button!==0) return;
+  const rect=map.getContainer().getBoundingClientRect();
+  const point=L.point(event.clientX-rect.left, event.clientY-rect.top);
+  const ll=map.containerPointToLatLng(point);
+  if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
+  await finishMapPick(ll.lat,ll.lng);
+}, true);
 $('saveBtn').addEventListener('click',()=>{
   const missingField=validateLogForm();
   if(missingField) setStatus(`Missing or incomplete: ${missingField}.`, 3600);
