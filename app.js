@@ -1,4 +1,4 @@
-const APP_VERSION='v10.20';
+const APP_VERSION='v10.21';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
@@ -509,7 +509,7 @@ async function entryToCloudRow(entry){
   let sharedLng=sharedPoint ? Number(sharedPoint.lng.toFixed(6)) : null;
   let sharedWaypointName=shareLocationLevel==='Body of Water Name' ? (entry.waypointName || null) : null;
   let sharedLocationSource=sharedPoint?.method==='public-access' ? (shareLocationLevel==='Body of Water Name' ? 'shared-access-body-of-water' : 'shared-access-water-type') : (shareLocationLevel==='Body of Water Name' ? 'shared-display-body-of-water' : 'shared-display-water-type');
-  let sharedAccuracy=sharedPoint?.method==='public-access' ? 'nearest-public-access' : null;
+  let sharedAccuracy=null;
 
   return {
     id:entry.id,
