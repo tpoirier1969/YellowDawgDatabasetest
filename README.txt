@@ -1,12 +1,12 @@
-Fishing Logbook v10.34.0
+Fishing Logbook v10.34.1
 
 What changed
-- phone layout cleaned up so the main action buttons sit at the bottom in a 2-column grid
-- added a Map Only toggle on phones so you can look at the map without the big action dock sitting on top of it
+- unified the main action flow across phone, tablet, and desktop so the main action buttons sit at the bottom in a 2-column grid everywhere
+- Map Only and Menu controls now work as the same map/menu toggle flow across screen sizes
 - tightened the header so the build note no longer stomps on the app title
 - Add Log now refreshes Time of Day when you tap Add Log
-- Use My Location and Pick on Map stay side by side on phones
-- Date and Time of Day stay side by side on phones
+- Use My Location and Pick on Map stay side by side
+- Date and Time of Day stay side by side
 - removed Waypoint and Sharing Preview from the visible Add Log form for now
 - moved Water Type and Water Conditions onto one row
 - added Wind
@@ -21,5 +21,5 @@ Important Supabase note
 
 Notes
 - presentation depth still uses the existing depth-zone field under the hood; the UI label is what changed
-- map-only mode is a view toggle for phones and does not change data
+- map-only mode is a view toggle and does not change data
 - local save behavior is unchanged

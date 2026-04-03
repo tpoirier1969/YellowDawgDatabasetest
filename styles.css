@@ -155,3 +155,37 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   #floatingActions .pill{font-size:14px;min-height:50px;}
   .compact-actions .secondaryBtn{font-size:13px;}
 }
+
+
+/* v10.34.1 unified bottom-dock flow across screen sizes */
+#topBadge{z-index:1002;max-width:min(calc(100vw - 24px), 420px);padding:10px 16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.noticeBanner{position:fixed;z-index:1001;top:calc(var(--safe-top) + 56px);left:50%;right:auto;transform:translateX(-50%);width:min(calc(100vw - 24px), 920px);padding:0;background:transparent !important;border:0 !important;box-shadow:none !important;border-radius:0;color:#000;font-size:15px;font-weight:800;line-height:1.35;text-align:center;text-shadow:none;pointer-events:none;}
+#floatingActions{position:fixed;z-index:1000;left:50% !important;right:auto !important;top:auto !important;bottom:var(--safe-bottom);transform:translateX(-50%);display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:min(calc(100vw - 24px), 680px);}
+#floatingActions .pill{width:100%;min-height:52px;border-radius:16px;padding:0 12px;font-size:15px;}
+#addLogBtn{order:1;}
+#reviewBtn{order:2;}
+#filterBtn{order:3;}
+#cloudBtn{order:4;}
+#anglerSetupBtn{order:5;}
+#predictBtn{order:6;}
+#statusBadge{left:50%;right:auto;transform:translateX(-50%);max-width:min(calc(100vw - 24px), 680px);bottom:calc(var(--safe-bottom) + 188px);}
+#mapUiToggleBar{display:block;position:fixed;z-index:1001;right:12px;bottom:calc(var(--safe-bottom) + 188px);}
+.dockToggleBtn{min-height:40px;padding:0 14px;font-size:13px;border-radius:999px;}
+body.action-dock-hidden #floatingActions{display:none !important;}
+body.action-dock-hidden #hideActionDockBtn{display:none !important;}
+body:not(.action-dock-hidden) #showActionDockBtn{display:none !important;}
+body.action-dock-hidden #showActionDockBtn{display:inline-flex;}
+body.action-dock-hidden #mapUiToggleBar{bottom:var(--safe-bottom);}
+body.action-dock-hidden #statusBadge{bottom:calc(var(--safe-bottom) + 56px);}
+
+@media (max-width:720px){
+  #topBadge{max-width:calc(100vw - 24px);font-size:15px;}
+  .noticeBanner{top:calc(var(--safe-top) + 52px);width:calc(100vw - 24px);font-size:13px;line-height:1.32;}
+  #floatingActions{width:calc(100vw - 24px);}
+  #statusBadge{left:12px;right:12px;transform:none;max-width:none;}
+}
+
+@media (max-width:380px){
+  .noticeBanner{font-size:12px;}
+  #floatingActions .pill{font-size:14px;min-height:50px;}
+}
