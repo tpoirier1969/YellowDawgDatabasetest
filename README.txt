@@ -1,4 +1,4 @@
-Fishing Logbook v10.18
+Fishing Logbook v10.33.1
 
 What changed
 - colors now load alphabetically in the log form and filter sheet
@@ -39,3 +39,9 @@ v10.21 notes:
 - Shared cloud logs now sync an approximate display point for map rendering on other devices.
 - The exact spot stays on the device that logged it when available.
 - Added fishing-icon.svg for favicon / app icon styling.
+
+
+Patch notes for v10.33.1
+- Reworked Pick on Map to bind directly to the Leaflet map container instead of relying on a transparent overlay layer.
+- Added a direct DOM fallback for tap/click capture on the live map container.
+- Added extra map invalidate calls after closing the Add Log sheet so the map is ready to accept the pick immediately.
