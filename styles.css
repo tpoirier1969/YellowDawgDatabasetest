@@ -220,3 +220,13 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 input[inputmode='decimal']{-moz-appearance:textfield;}
 input[inputmode='decimal']::-webkit-outer-spin-button,input[inputmode='decimal']::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 #logForm .helper-box#baitHelper{display:none !important;}
+
+/* v10.36.0 review filters, inline helper, and icon-ready tweaks */
+.reviewFilterBar{margin:12px 0 14px;padding:12px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(9,20,33,.58);}
+.reviewFilterActions{display:flex;justify-content:flex-end;margin-top:10px;}
+.inline-helper{display:flex;align-items:center;min-height:48px;margin:0;}
+@media (max-width:680px){
+  .reviewFilterBar .form-grid.three{grid-template-columns:1fr;}
+  .reviewFilterActions{justify-content:stretch;}
+  .reviewFilterActions .secondaryBtn{width:100%;}
+}

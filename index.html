@@ -3,17 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fishing Logbook v10.35.0</title>
+<title>Fishing Logbook v10.36.0</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <link rel="icon" type="image/svg+xml" href="fishing-icon.svg">
-<link rel="apple-touch-icon" href="fishing-icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fish Logbook">
+<meta name="theme-color" content="#4fa3d9">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="map"></div>
-<div id="topBadge" class="glass">Fishing Logbook v10.35.0</div>
+<div id="topBadge" class="glass">Fishing Logbook v10.36.0</div>
 <div id="buildNotice" class="noticeBanner">This app is still in development. Issues may arise as features are added but they will be fixed shortly, provided I'm not out casting a fly.</div>
 <div id="statusBadge" class="glass hidden">Ready.</div>
 
@@ -127,21 +133,25 @@
             <option value="">Choose one</option>
           </select>
         </label>
+        <label>Bottom Type
+          <select id="bottomType" name="bottomType">
+            <option value="">Choose one</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-grid keep-two compact-grid">
         <label>Wind
           <select id="wind" name="wind">
             <option value="">Choose one</option>
             <option>Calm</option><option>Light</option><option>Moderate</option><option>Strong</option><option>Gusting</option>
           </select>
         </label>
-      </div>
-      <div class="form-grid keep-two compact-grid">
         <label>Wind Direction
           <select id="windDirection" name="windDirection">
             <option value="">Choose one</option>
             <option>N</option><option>NE</option><option>E</option><option>SE</option><option>S</option><option>SW</option><option>W</option><option>NW</option>
           </select>
         </label>
-        <div></div>
       </div>
     </div>
 
@@ -180,7 +190,7 @@
             <option value="">Choose one</option>
           </select>
         </label>
-        <label>Presentation Depth
+        <label id="presentationDepthZoneWrap">Presentation Depth
           <select id="depthZone" name="depthZone" required>
             <option value="">Choose one</option>
           </select>
@@ -190,6 +200,10 @@
             <option value="">Choose one</option>
           </select>
         </label>
+      </div>
+      <div class="form-grid keep-two compact-grid hidden" id="greatLakeDepthRow">
+        <label>Presentation Depth (ft)<input type="text" inputmode="decimal" id="presentationDepthFt" name="presentationDepthFt" placeholder="80, 120, 180..."></label>
+        <div class="helper-box inline-helper" id="greatLakeDepthHint">Great Lakes exact presentation depth helps more than a vague “Deep.”</div>
       </div>
 
       <div class="form-grid keep-two compact-grid" id="lureColorGrid">
@@ -298,6 +312,22 @@
   <div class="sheet-handle"></div>
   <div class="sheet-head"><div><h2>Review Logs</h2><p id="reviewSubcopy">Saved logs stay tucked away until you want them.</p></div><button id="closeReviewSheetBtn" class="sheetClose" type="button">Close</button></div>
   <div id="cloudSummary" class="helper-box">Local-only mode. Add Supabase details in supabase-config.js to share logs across devices.</div>
+  <div class="reviewFilterBar">
+    <div class="form-grid three compact-grid">
+      <label>Fishing Type
+        <select id="reviewFilterBaitType"><option value="">All</option><option>Fly</option><option>Lure</option><option>Live Bait</option><option>Ice</option></select>
+      </label>
+      <label>Species
+        <select id="reviewFilterSpecies"><option value="">All</option></select>
+      </label>
+      <label>Water Type
+        <select id="reviewFilterWaterType"><option value="">All</option><option>Stream</option><option>River</option><option>Pond</option><option>Lake</option><option>Great Lake</option></select>
+      </label>
+    </div>
+    <div class="reviewFilterActions">
+      <button id="reviewResetFiltersBtn" type="button" class="secondaryBtn">Reset Review Filters</button>
+    </div>
+  </div>
   <div id="statsGrid" class="statsGrid"></div>
   <div id="entryCount" class="entryCount"></div>
   <div id="entryList" class="entryList"></div>

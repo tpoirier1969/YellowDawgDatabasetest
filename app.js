@@ -1,4 +1,4 @@
-const APP_VERSION='v10.35.1';
+const APP_VERSION='v10.36.0';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -25,7 +25,9 @@ const RIVER_WATER_LEVEL_OPTIONS=['Low','Normal','High','Bankfull'];
 const LAKE_SURFACE_OPTIONS=['Still','Rippled','Choppy','Wavy','Rolling','Rough'];
 const RIVER_CURRENT_OPTIONS=['Slow','Medium','Strong','Fast','Rapids'];
 const LAKE_STRUCTURE_TYPES=['Weed Edge','Rock Pile','Drop-off','Point','Flat','Hump','Shoal','Reef','Inside Turn','Outside Turn','Inlet / Outlet','Dock','Marina','Shoreline','Open Water','Timber'];
+const LAKE_BOTTOM_TYPES=['Sand','Mud','Silt','Gravel','Rock','Boulder','Clay','Marl','Mixed'];
 const RIVER_STRUCTURE_TYPES=['Pool','Riffle','Run','Seam','Undercut Bank','Logjam','Boulder','Current Break','Eddy','Tailout','Bend','Cut Bank','Inside Turn','Pocket Water','Tributary Mouth','Bridge Area'];
+const RIVER_BOTTOM_TYPES=['Sand','Mud','Silt','Gravel','Cobble','Boulder','Bedrock','Clay','Mixed'];
 const PRESENTATION_OPTIONS={
   'Fly':{styles:['Dead Drift','Swing','Strip','Skate','Nymph Under Indicator','Tight Line / Euro','Dry Fly','Popper'],depths:['Surface','Just Under Surface','Mid-Column','Near Bottom','Bottom'],speeds:['Dead Drift','Slow','Medium','Fast']},
   'Lure':{styles:['Steady Retrieve','Twitch','Jig','Rip','Burn','Trolling','Stop-and-Go','Wake'],depths:['Surface','Shallow','Mid-Column','Deep','Bottom'],speeds:['Slow','Medium','Fast','Erratic']},
@@ -500,6 +502,9 @@ function normalizeEntry(entry={}){
     waterTemp:entry.waterTemp==='' || entry.waterTemp==null ? null : Number(entry.waterTemp),
     waterDepthFt:entry.waterDepthFt==='' || entry.waterDepthFt==null ? null : Number(entry.waterDepthFt),
     wind:entry.wind || '',
+    windDirection:entry.windDirection || '',
+    bottomType:entry.bottomType || '',
+    presentationDepthFt:entry.presentationDepthFt==='' || entry.presentationDepthFt==null ? null : Number(entry.presentationDepthFt),
     surfaceCondition:entry.surfaceCondition || '',
     currentSpeed:entry.currentSpeed || '',
     hatches:entry.hatches || '',
@@ -600,6 +605,7 @@ async function entryToCloudRow(entry){
     air_temp:entry.airTemp,
     water_temp:entry.waterTemp,
     water_depth_ft:entry.waterDepthFt,
+    presentation_depth_ft:entry.presentationDepthFt,
     wind:entry.wind || null,
     sky_condition:entry.skyCondition || null,
     water_condition:entry.waterCondition || null,
@@ -611,6 +617,7 @@ async function entryToCloudRow(entry){
     presentation_style:entry.presentationStyle || null,
     wind_direction:entry.windDirection || null,
     structure_type:entry.structureType || null,
+    bottom_type:entry.bottomType || null,
     hatches:entry.hatches || null,
     notes:entry.notes || null,
     location_source:sharedLocationSource,
@@ -658,6 +665,7 @@ function cloudRowToEntry(row){
     airTemp:row.air_temp,
     waterTemp:row.water_temp,
     waterDepthFt:row.water_depth_ft==='' || row.water_depth_ft==null ? null : Number(row.water_depth_ft),
+    presentationDepthFt:row.presentation_depth_ft==='' || row.presentation_depth_ft==null ? null : Number(row.presentation_depth_ft),
     wind:row.wind || '',
     skyCondition:row.sky_condition || '',
     waterCondition:row.water_condition || '',
@@ -669,6 +677,7 @@ function cloudRowToEntry(row){
     presentationStyle:row.presentation_style || '',
     windDirection:row.wind_direction || '',
     structureType:row.structure_type || '',
+    bottomType:row.bottom_type || '',
     hatches:row.hatches || '',
     notes:row.notes || '',
     locationSource:row.location_source || '',
@@ -816,16 +825,23 @@ function validateLogForm(){
 function populateSpeciesOptions(){
   const formValue=$('species').value;
   const filterValue=$('filterSpecies').value;
+  const reviewFilterValue=$('reviewFilterSpecies') ? $('reviewFilterSpecies').value : '';
   setOptions($('species'), MIDWEST_FISH_SPECIES, 'Choose one');
   setOptions($('filterSpecies'), MIDWEST_FISH_SPECIES, 'All');
+  if($('reviewFilterSpecies')) setOptions($('reviewFilterSpecies'), MIDWEST_FISH_SPECIES, 'All');
   if(formValue && MIDWEST_FISH_SPECIES.includes(formValue)) $('species').value=formValue;
   if(filterValue && MIDWEST_FISH_SPECIES.includes(filterValue)) $('filterSpecies').value=filterValue;
+  if(reviewFilterValue && MIDWEST_FISH_SPECIES.includes(reviewFilterValue) && $('reviewFilterSpecies')) $('reviewFilterSpecies').value=reviewFilterValue;
 }
 
 function populateFilterDropdowns(){
+  const baitTypes=['Fly','Lure','Live Bait','Ice'];
   const baitTypeValue=$('filterBaitType') ? $('filterBaitType').value : '';
-  setOptions($('filterBaitType'), ['Fly','Lure','Live Bait'], 'All');
-  if(baitTypeValue && ['Fly','Lure','Live Bait'].includes(baitTypeValue)) $('filterBaitType').value=baitTypeValue;
+  const reviewBaitTypeValue=$('reviewFilterBaitType') ? $('reviewFilterBaitType').value : '';
+  setOptions($('filterBaitType'), baitTypes, 'All');
+  if($('reviewFilterBaitType')) setOptions($('reviewFilterBaitType'), baitTypes, 'All');
+  if(baitTypeValue && baitTypes.includes(baitTypeValue)) $('filterBaitType').value=baitTypeValue;
+  if(reviewBaitTypeValue && baitTypes.includes(reviewBaitTypeValue) && $('reviewFilterBaitType')) $('reviewFilterBaitType').value=reviewBaitTypeValue;
 }
 
 function setLabelText(labelEl, text){
@@ -1242,14 +1258,18 @@ function syncMirroredConditionFields(){
 function updateConditionFieldsForWaterType(){
   const waterType=$('waterType').value;
   const riverLike=isRiverLikeWaterType(waterType);
+  const isGreatLake=waterType==='Great Lake';
   const waterCondition=$('waterCondition');
   const structure=$('structureType');
+  const bottomType=$('bottomType');
   const surfaceWrap=$('surfaceConditionWrap');
   const currentWrap=$('currentSpeedWrap');
+  const greatLakeDepthRow=$('greatLakeDepthRow');
   document.querySelectorAll('.condition-grid-lake').forEach(el=>el.classList.toggle('hidden', riverLike));
   document.querySelectorAll('.condition-grid-river').forEach(el=>el.classList.toggle('hidden', !riverLike));
   setOptions(waterCondition, riverLike ? RIVER_WATER_LEVEL_OPTIONS : LAKE_WATER_LEVEL_OPTIONS, 'Choose one');
   setOptions(structure, riverLike ? RIVER_STRUCTURE_TYPES : LAKE_STRUCTURE_TYPES, 'Choose one');
+  if(bottomType) setOptions(bottomType, riverLike ? RIVER_BOTTOM_TYPES : LAKE_BOTTOM_TYPES, 'Choose one');
   if(surfaceWrap) surfaceWrap.classList.toggle('hidden', riverLike);
   if(currentWrap) currentWrap.classList.toggle('hidden', !riverLike);
   if($('surfaceCondition')) $('surfaceCondition').required=!riverLike;
@@ -1261,6 +1281,8 @@ function updateConditionFieldsForWaterType(){
     setOptions($('surfaceCondition'), LAKE_SURFACE_OPTIONS, 'Choose one');
     if($('currentSpeed')) $('currentSpeed').value='';
   }
+  if(greatLakeDepthRow) greatLakeDepthRow.classList.toggle('hidden', !isGreatLake);
+  if(!isGreatLake && $('presentationDepthFt')) $('presentationDepthFt').value='';
   syncMirroredConditionFields();
   updateSheetSelectTriggers();
 }
@@ -1638,7 +1660,7 @@ function render(){
     const waypointLine=drawable.exact && entry.waypointName && sharedLevel==='Body of Water Name' ? `<br>${escapeHtml(entry.waypointName)}` : '';
     const approxLabel=(entry.markerAccuracy==='nearest-public-access' || (entry.locationSource||'').startsWith('shared-access')) ? 'Nearest public access area' : 'Approximate shared area';
     const coordLine=drawable.exact ? `<br>${escapeHtml(formatCoord(drawable.point.lat))}, ${escapeHtml(formatCoord(drawable.point.lng))}` : `<br>${escapeHtml(approxLabel)}`;
-    const techniqueLine=[entry.presentationStyle || '', entry.depthZone ? `Presentation ${entry.depthZone}` : '', entry.waterDepthFt!=null ? `Water ${entry.waterDepthFt} ft` : '', [entry.wind||'', entry.windDirection||''].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
+    const techniqueLine=[entry.presentationStyle || '', entry.presentationDepthFt!=null ? `Presentation ${entry.presentationDepthFt} ft` : (entry.depthZone ? `Presentation ${entry.depthZone}` : ''), entry.waterDepthFt!=null ? `Water ${entry.waterDepthFt} ft` : '', [entry.wind||'', entry.windDirection||''].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
     marker.bindPopup(`<div><strong>${escapeHtml(getSharedOwnerLabel(entry))}</strong><br>${waterLine}${waypointLine}<br>${escapeHtml(entry.species)}${entry.sizeInches!=null ? ' · ' + escapeHtml(String(entry.sizeInches)) + '"' : ''}${entry.quantity!=null ? ' · Qty ' + escapeHtml(String(entry.quantity)) : ''}<br>${escapeHtml(getEntryBaitLabel(entry))}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${escapeHtml(entry.baitType)}${techniqueLine ? '<br>' + escapeHtml(techniqueLine) : ''}${coordLine}</div>`);
     state.markerCluster.addLayer(marker);
   });
@@ -1687,7 +1709,7 @@ function render(){
     const water=getSharedWaterLabel(entry);
     const bait=[entry.baitType, entry.baitSubtype || '', getEntryBaitLabel(entry)].filter(Boolean).join(' · ');
     const waterMotion=isRiverLikeWaterType(entry.waterType) ? entry.currentSpeed : entry.surfaceCondition;
-    const conditions=[entry.skyCondition, entry.wind || '', entry.waterCondition, entry.waterClarity, waterMotion || '', entry.timeOfDay].filter(Boolean).join(' · ');
+    const conditions=[entry.skyCondition, entry.wind || '', entry.waterCondition, entry.waterClarity, waterMotion || '', entry.bottomType || '', entry.timeOfDay].filter(Boolean).join(' · ');
     const locateDisabled=!getDrawableMarker(entry) ? ' disabled' : '';
     const row=document.createElement('div');
     row.className='entryRow';
@@ -1754,7 +1776,7 @@ function updateSheetSelectTrigger(select){
 }
 
 function updateSheetSelectTriggers(){
-  document.querySelectorAll('#logForm select').forEach(select=>{
+  document.querySelectorAll('#logForm select, #reviewSheet select').forEach(select=>{
     ensureSheetSelectButton(select);
     updateSheetSelectTrigger(select);
   });
@@ -1896,6 +1918,8 @@ function clearDraftMarker(){
   if($('waterCondition')) $('waterCondition').value='';
   if($('surfaceCondition')) $('surfaceCondition').value='';
   if($('currentSpeed')) $('currentSpeed').value='';
+  if($('bottomType')) $('bottomType').value='';
+  if($('presentationDepthFt')) $('presentationDepthFt').value='';
   clearWaterSuggestions();
   $('waterLookupStatus').textContent='Tap Add Log to use your phone location, or pick a spot on the map.';
   updateConditionFieldsForWaterType();
@@ -2093,6 +2117,7 @@ if($('showActionDockBtn')) $('showActionDockBtn').addEventListener('click',()=>s
 $('reviewBtn').addEventListener('click',()=>{
   cancelAddMode();
   closeAllSheets();
+  syncStateToReviewFilters();
   openSheet($('reviewSheet'));
 });
 $('filterBtn').addEventListener('click',()=>{
@@ -2148,20 +2173,18 @@ $('locationShareLevelInput').addEventListener('change',()=>{ const demoName=Stri
 $('clearSpotBtn').addEventListener('click',event=>{ event.preventDefault(); event.stopPropagation(); clearDraftMarker(); });
 rewireLocationButtons();
 initializeMapPickHandlers();
-$('resetFiltersBtn').addEventListener('click',()=>{
-  $('filterDateFrom').value='';
-  $('filterDateTo').value='';
-  $('filterSpecies').value='';
-  $('filterColor').value='';
-  $('filterBaitType').value='';
-  $('filterWaterType').value='';
-  $('filterTimeOfDay').value='';
-  $('filterSky').value='';
-  $('filterRetrieveSpeed').value='';
-  state.filters={dateFrom:'',dateTo:'',species:'',color:'',baitType:'',waterType:'',timeOfDay:'',sky:'',retrieveSpeed:''};
-  render();
-});
-['filterDateFrom','filterDateTo','filterSpecies','filterColor','filterBaitType','filterWaterType','filterTimeOfDay','filterSky','filterRetrieveSpeed'].forEach(id=>$(id).addEventListener('change',()=>{
+function syncReviewFiltersToState(){
+  if($('reviewFilterSpecies')) $('filterSpecies').value=$('reviewFilterSpecies').value;
+  if($('reviewFilterBaitType')) $('filterBaitType').value=$('reviewFilterBaitType').value;
+  if($('reviewFilterWaterType')) $('filterWaterType').value=$('reviewFilterWaterType').value;
+}
+function syncStateToReviewFilters(){
+  if($('reviewFilterSpecies')) $('reviewFilterSpecies').value=state.filters.species || '';
+  if($('reviewFilterBaitType')) $('reviewFilterBaitType').value=state.filters.baitType || '';
+  if($('reviewFilterWaterType')) $('reviewFilterWaterType').value=state.filters.waterType || '';
+  updateSheetSelectTriggers();
+}
+function applyMapAndReviewFiltersFromInputs(){
   state.filters.dateFrom=$('filterDateFrom').value;
   state.filters.dateTo=$('filterDateTo').value;
   state.filters.species=$('filterSpecies').value;
@@ -2171,7 +2194,32 @@ $('resetFiltersBtn').addEventListener('click',()=>{
   state.filters.timeOfDay=$('filterTimeOfDay').value;
   state.filters.sky=$('filterSky').value;
   state.filters.retrieveSpeed=$('filterRetrieveSpeed').value;
+  syncStateToReviewFilters();
   render();
+}
+function resetAllFilters(){
+  $('filterDateFrom').value='';
+  $('filterDateTo').value='';
+  $('filterSpecies').value='';
+  $('filterColor').value='';
+  $('filterBaitType').value='';
+  $('filterWaterType').value='';
+  $('filterTimeOfDay').value='';
+  $('filterSky').value='';
+  $('filterRetrieveSpeed').value='';
+  if($('reviewFilterSpecies')) $('reviewFilterSpecies').value='';
+  if($('reviewFilterBaitType')) $('reviewFilterBaitType').value='';
+  if($('reviewFilterWaterType')) $('reviewFilterWaterType').value='';
+  state.filters={dateFrom:'',dateTo:'',species:'',color:'',baitType:'',waterType:'',timeOfDay:'',sky:'',retrieveSpeed:''};
+  updateSheetSelectTriggers();
+  render();
+}
+$('resetFiltersBtn').addEventListener('click',resetAllFilters);
+if($('reviewResetFiltersBtn')) $('reviewResetFiltersBtn').addEventListener('click',resetAllFilters);
+['filterDateFrom','filterDateTo','filterSpecies','filterColor','filterBaitType','filterWaterType','filterTimeOfDay','filterSky','filterRetrieveSpeed'].forEach(id=>$(id).addEventListener('change',applyMapAndReviewFiltersFromInputs));
+['reviewFilterSpecies','reviewFilterBaitType','reviewFilterWaterType'].forEach(id=>$(id)?.addEventListener('change',()=>{
+  syncReviewFiltersToState();
+  applyMapAndReviewFiltersFromInputs();
 }));
 $('baitType').addEventListener('change',applyBaitTypeUI);
 $('baitSubtype').addEventListener('change',()=>{ updateSheetSelectTriggers();

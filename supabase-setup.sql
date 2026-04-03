@@ -37,7 +37,9 @@ create table if not exists public.fishing_catch_logs (
   depth_zone text,
   retrieve_speed text,
   presentation_style text,
+  presentation_depth_ft numeric,
   structure_type text,
+  bottom_type text,
   hatches text,
   notes text,
   location_source text,
@@ -125,3 +127,6 @@ alter table public.fishing_catch_logs add column if not exists wind_direction te
 
 alter table public.fishing_catch_logs add column if not exists surface_condition text;
 alter table public.fishing_catch_logs add column if not exists current_speed text;
+
+alter table public.fishing_catch_logs add column if not exists presentation_depth_ft numeric;
+alter table public.fishing_catch_logs add column if not exists bottom_type text;
