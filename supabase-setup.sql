@@ -28,6 +28,7 @@ create table if not exists public.fishing_catch_logs (
   water_temp numeric,
   water_depth_ft numeric,
   wind text,
+  wind_direction text,
   sky_condition text,
   water_condition text,
   water_clarity text,
@@ -120,6 +121,7 @@ alter table public.fishing_catch_logs add column if not exists exact_marker_lng 
 
 alter table public.fishing_catch_logs add column if not exists water_depth_ft numeric;
 alter table public.fishing_catch_logs add column if not exists wind text;
+alter table public.fishing_catch_logs add column if not exists wind_direction text;
 
 alter table public.fishing_catch_logs add column if not exists surface_condition text;
 alter table public.fishing_catch_logs add column if not exists current_speed text;

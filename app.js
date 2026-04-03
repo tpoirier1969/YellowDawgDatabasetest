@@ -1,4 +1,4 @@
-const APP_VERSION='v10.35.0';
+const APP_VERSION='v10.35.1';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -609,6 +609,7 @@ async function entryToCloudRow(entry){
     depth_zone:entry.depthZone || null,
     retrieve_speed:entry.retrieveSpeed || null,
     presentation_style:entry.presentationStyle || null,
+    wind_direction:entry.windDirection || null,
     structure_type:entry.structureType || null,
     hatches:entry.hatches || null,
     notes:entry.notes || null,
@@ -666,6 +667,7 @@ function cloudRowToEntry(row){
     depthZone:row.depth_zone || '',
     retrieveSpeed:row.retrieve_speed || '',
     presentationStyle:row.presentation_style || '',
+    windDirection:row.wind_direction || '',
     structureType:row.structure_type || '',
     hatches:row.hatches || '',
     notes:row.notes || '',
@@ -786,7 +788,7 @@ function validateLogForm(){
     ['Structure',$('structureType').value],
     ['Fishing Type',$('baitType').value],
     ['Presentation Style',$('presentationStyle').value],
-    ['Presented Depth',$('depthZone').value],
+    ['Presentation Depth',$('depthZone').value],
     ['Species',$('species').value],
     ['Size (inches)',$('sizeInches').value],
     ['Quantity',$('quantity').value]
@@ -1260,6 +1262,7 @@ function updateConditionFieldsForWaterType(){
     if($('currentSpeed')) $('currentSpeed').value='';
   }
   syncMirroredConditionFields();
+  updateSheetSelectTriggers();
 }
 
 function updatePresentationOptions(){
@@ -1275,9 +1278,13 @@ function updateHatchesVisibility(){
   const show=$('baitType').value==='Fly';
   if(wrap) wrap.classList.toggle('hidden', !show);
   if(!show && $('hatches')) $('hatches').value='';
+  updateSheetSelectTriggers();
 }
 
 function updateBaitHelperContext(){
+  const helper=$('baitHelper');
+  if(!helper) return;
+
   const type=$('baitType').value;
   const subtype=$('baitSubtype').value;
   if(type==='Fly'){
@@ -1308,7 +1315,7 @@ function applyBaitTypeUI(){
   $('nameSuggestions').classList.add('hidden');
   baitName.value='';
   baitSize.innerHTML='<option value="">Choose one</option>';
-  setBaitHelper('');
+  if($('baitHelper')) setBaitHelper('');
 
   baitSubtype.disabled=false;
   baitSubtype.required=false;
@@ -1371,6 +1378,7 @@ function applyBaitTypeUI(){
   updateHatchesVisibility();
   updatePresentationOptions();
   updateBaitHelperContext();
+  updateSheetSelectTriggers();
 }
 
 function updateFlySuggestions(query){
@@ -1630,7 +1638,7 @@ function render(){
     const waypointLine=drawable.exact && entry.waypointName && sharedLevel==='Body of Water Name' ? `<br>${escapeHtml(entry.waypointName)}` : '';
     const approxLabel=(entry.markerAccuracy==='nearest-public-access' || (entry.locationSource||'').startsWith('shared-access')) ? 'Nearest public access area' : 'Approximate shared area';
     const coordLine=drawable.exact ? `<br>${escapeHtml(formatCoord(drawable.point.lat))}, ${escapeHtml(formatCoord(drawable.point.lng))}` : `<br>${escapeHtml(approxLabel)}`;
-    const techniqueLine=[entry.presentationStyle || '', entry.depthZone ? `Presented ${entry.depthZone}` : '', entry.waterDepthFt!=null ? `Water ${entry.waterDepthFt} ft` : '', entry.wind || ''].filter(Boolean).join(' · ');
+    const techniqueLine=[entry.presentationStyle || '', entry.depthZone ? `Presentation ${entry.depthZone}` : '', entry.waterDepthFt!=null ? `Water ${entry.waterDepthFt} ft` : '', [entry.wind||'', entry.windDirection||''].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
     marker.bindPopup(`<div><strong>${escapeHtml(getSharedOwnerLabel(entry))}</strong><br>${waterLine}${waypointLine}<br>${escapeHtml(entry.species)}${entry.sizeInches!=null ? ' · ' + escapeHtml(String(entry.sizeInches)) + '"' : ''}${entry.quantity!=null ? ' · Qty ' + escapeHtml(String(entry.quantity)) : ''}<br>${escapeHtml(getEntryBaitLabel(entry))}${entry.baitSize ? ' · #' + escapeHtml(entry.baitSize) : ''} · ${escapeHtml(entry.baitType)}${techniqueLine ? '<br>' + escapeHtml(techniqueLine) : ''}${coordLine}</div>`);
     state.markerCluster.addLayer(marker);
   });
@@ -1701,6 +1709,81 @@ function render(){
   });
 }
 
+
+function parseOptionalNumber(value){
+  const raw=String(value ?? '').trim();
+  if(!raw) return null;
+  const cleaned=raw.replace(/,/g,'');
+  const num=Number(cleaned);
+  return Number.isFinite(num) ? num : null;
+}
+
+let activeSheetSelect=null;
+function ensureSheetSelectButton(select){
+  if(!select || select.dataset.sheetSelectReady==='true') return;
+  const trigger=document.createElement('button');
+  trigger.type='button';
+  trigger.className='sheet-select-trigger';
+  trigger.setAttribute('aria-haspopup','dialog');
+  trigger.addEventListener('click',()=>openSheetSelect(select));
+  select.classList.add('native-select-hidden');
+  select.insertAdjacentElement('afterend', trigger);
+  select.dataset.sheetSelectReady='true';
+}
+
+function getSheetSelectLabel(select){
+  const label=select.closest('label');
+  if(!label) return 'Choose one';
+  const clone=label.cloneNode(true);
+  clone.querySelectorAll('select,input,textarea,button,div').forEach(el=>el.remove());
+  return clone.textContent.trim() || 'Choose one';
+}
+
+function updateSheetSelectTrigger(select){
+  if(!select || !select.dataset.sheetSelectReady) return;
+  const trigger=select.nextElementSibling;
+  if(!trigger || !trigger.classList.contains('sheet-select-trigger')) return;
+  const current=select.options[select.selectedIndex];
+  const placeholder=(select.options[0] && !select.options[0].value ? select.options[0].textContent.trim() : 'Choose one');
+  trigger.textContent=(current && current.value ? current.textContent : placeholder);
+  trigger.classList.toggle('is-placeholder', !(current && current.value));
+  trigger.disabled=select.disabled;
+  const label=select.closest('label');
+  const hidden=(label && label.closest('.hidden')) || select.closest('.hidden');
+  trigger.classList.toggle('hidden', !!hidden);
+}
+
+function updateSheetSelectTriggers(){
+  document.querySelectorAll('#logForm select').forEach(select=>{
+    ensureSheetSelectButton(select);
+    updateSheetSelectTrigger(select);
+  });
+}
+
+function openSheetSelect(select){
+  if(!select || select.disabled) return;
+  activeSheetSelect=select;
+  $('pickerTitle').textContent=getSheetSelectLabel(select);
+  const optionsWrap=$('pickerOptions');
+  optionsWrap.innerHTML='';
+  [...select.options].forEach((option, index)=>{
+    if(index===0 && !option.value) return;
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.className='picker-option';
+    btn.textContent=option.textContent;
+    if(option.value===select.value) btn.classList.add('selected');
+    btn.addEventListener('click',()=>{
+      select.value=option.value;
+      select.dispatchEvent(new Event('change',{bubbles:true}));
+      updateSheetSelectTrigger(select);
+      closeSheet($('sheetPicker'));
+    });
+    optionsWrap.appendChild(btn);
+  });
+  openSheet($('sheetPicker'));
+}
+
 async function onSubmit(event){
   event.preventDefault();
   const missingField=validateLogForm();
@@ -1738,13 +1821,14 @@ async function onSubmit(event){
       additionalColor:raw.additionalColor,
       baitSize:raw.baitType==='Fly' ? raw.baitSize : '',
       species:raw.species,
-      sizeInches:Number(raw.sizeInches||0),
+      sizeInches:parseOptionalNumber(raw.sizeInches) || 0,
       weight:(raw.weight||'').trim(),
       quantity:Number(raw.quantity||1),
-      airTemp:raw.airTemp ? Number(raw.airTemp) : null,
-      waterTemp:raw.waterTemp ? Number(raw.waterTemp) : null,
-      waterDepthFt:raw.waterDepthFt ? Number(raw.waterDepthFt) : null,
+      airTemp:parseOptionalNumber(raw.airTemp),
+      waterTemp:parseOptionalNumber(raw.waterTemp),
+      waterDepthFt:parseOptionalNumber(raw.waterDepthFt),
       wind:(raw.wind||'').trim(),
+      windDirection:(raw.windDirection||'').trim(),
       skyCondition:raw.skyCondition,
       waterCondition:raw.waterCondition,
       waterClarity:raw.waterClarity,
@@ -1800,12 +1884,14 @@ function clearFormAfterSave(){
   refreshSharingSummary();
   applyBaitTypeUI();
   syncMirroredConditionFields();
+  updateSheetSelectTriggers();
 }
 
 function clearDraftMarker(){
   state.pendingLocationRequestId+=1;
   $('waterName').value='';
   if($('waypointName')) $('waypointName').value='';
+  if($('windDirection')) $('windDirection').value='';
   $('waterType').value='';
   if($('waterCondition')) $('waterCondition').value='';
   if($('surfaceCondition')) $('surfaceCondition').value='';
@@ -2088,11 +2174,11 @@ $('resetFiltersBtn').addEventListener('click',()=>{
   render();
 }));
 $('baitType').addEventListener('change',applyBaitTypeUI);
-$('baitSubtype').addEventListener('change',()=>{
+$('baitSubtype').addEventListener('change',()=>{ updateSheetSelectTriggers();
   if($('baitType').value==='Fly'){
     const exact=findExactFly($('baitName').value);
     if(exact && exact.category!==$('baitSubtype').value) $('baitName').value='';
-    setBaitHelper('');
+    if($('baitHelper')) setBaitHelper('');
     refreshFlySizeOptions();
     updateFlySuggestions($('baitName').value.trim());
     updateBaitHelperContext();
@@ -2129,8 +2215,9 @@ $('waterName').addEventListener('input',()=>{
   if(inferred) $('waterType').value=inferred;
   updateConditionFieldsForWaterType();
   refreshSharingSummary();
+  updateSheetSelectTriggers();
 });
-$('waterType').addEventListener('change',()=>{ updateConditionFieldsForWaterType(); refreshSharingSummary(); });
+$('waterType').addEventListener('change',()=>{ updateConditionFieldsForWaterType(); refreshSharingSummary(); updateSheetSelectTriggers(); });
 $('waterClarity').addEventListener('change',syncMirroredConditionFields);
 $('waterDepthFt').addEventListener('input',syncMirroredConditionFields);
 $('saveBtn').addEventListener('click',()=>{
@@ -2142,6 +2229,10 @@ updateConditionFieldsForWaterType();
 applyBaitTypeUI();
 syncAddLogButton();
 updateCloudUi();
+updateSheetSelectTriggers();
 setStatus(`Fishing Logbook ${APP_VERSION} loaded.`, 2200);
 render();
 initCloud();
+
+$('closePickerBtn').addEventListener('click',()=>closeSheet($('sheetPicker')));
+window.addEventListener('resize', updateSheetSelectTriggers);

@@ -1,4 +1,4 @@
-Fishing Logbook v10.35.0
+Fishing Logbook v10.35.1
 
 What changed
 - unified the main action flow across phone, tablet, and desktop so the main action buttons sit at the bottom in a 2-column grid everywhere
