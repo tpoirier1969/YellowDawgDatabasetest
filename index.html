@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fishing Logbook v10.21</title>
+<title>Fishing Logbook v10.23</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -13,7 +13,7 @@
 </head>
 <body>
 <div id="map"></div>
-<div id="topBadge" class="glass">Fishing Logbook v10.21</div>
+<div id="topBadge" class="glass">Fishing Logbook v10.23</div>
 <div id="statusBadge" class="glass hidden">Ready.</div>
 
 <div id="floatingActions">
@@ -22,6 +22,7 @@
   <button id="reviewBtn" class="pill">Review</button>
   <button id="filterBtn" class="pill">Filters</button>
   <button id="cloudBtn" class="pill">Cloud Setup</button>
+  <button id="predictBtn" class="pill">Prediction</button>
 </div>
 
 <div id="logSheet" class="sheet" aria-hidden="true">
@@ -44,7 +45,7 @@
         <label>Date<input type="date" id="date" name="date" required></label>
         <label>Time of Day
           <select id="timeOfDay" name="timeOfDay" required>
-            <option>Dawn</option><option>Morning</option><option>Midday</option><option>Evening</option><option>Night</option>
+            <option>Dawn</option><option>Morning</option><option>Midday</option><option>Afternoon</option><option>Evening</option><option>Night</option>
           </select>
         </label>
       </div>
@@ -138,19 +139,19 @@
       <div class="helper-box" id="baitHelper">Choose bait type first.</div>
 
       <div class="form-grid three">
-        <label>Main Color
-          <select id="mainColor" name="mainColor" required>
+        <label id="mainColorWrap">Lure Color
+          <select id="mainColor" name="mainColor">
             <option value="">Choose one</option>
           </select>
         </label>
-        <label>Additional Color
+        <label id="additionalColorWrap">Additional Lure Color
           <select id="additionalColor" name="additionalColor">
             <option value="">None</option>
           </select>
         </label>
-        <label>Retrieve Speed
-          <select id="retrieveSpeed" name="retrieveSpeed" required>
-            <option value="">Choose one</option><option>Still</option><option>Drift</option><option>Slow</option><option>Medium</option><option>Fast</option>
+        <label>Speed
+          <select id="retrieveSpeed" name="retrieveSpeed">
+            <option value="">Optional</option><option>Slow</option><option>Medium</option><option>Fast</option>
           </select>
         </label>
       </div>
@@ -239,14 +240,40 @@
   <div id="entryList" class="entryList"></div>
 </div>
 
+
+<div id="predictSheet" class="sheet" aria-hidden="true">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head"><div><h2>Prediction Input</h2><p>Capture future prediction variables now. No recommendation engine yet.</p></div><button id="closePredictSheetBtn" class="sheetClose" type="button">Close</button></div>
+  <div class="helper-box">Dormant for now. This just defines the future prediction inputs.</div>
+  <form id="predictForm" autocomplete="off" novalidate>
+    <div class="section">
+      <div class="section-title">Trip Context</div>
+      <div class="form-grid two"><label>Date<input type="date" id="predictDate"></label><label>Time of Day<select id="predictTimeOfDay"><option value="">Choose one</option><option>Dawn</option><option>Morning</option><option>Midday</option><option>Afternoon</option><option>Evening</option><option>Night</option></select></label></div>
+      <div class="form-grid two"><label>Body of Water<input type="text" id="predictWaterName" placeholder="Optional"></label><label>Water Type<select id="predictWaterType"><option value="">Choose one</option><option>Stream</option><option>River</option><option>Pond</option><option>Lake</option><option>Great Lake</option></select></label></div>
+    </div>
+    <div class="divider"></div>
+    <div class="section">
+      <div class="section-title">Targeting</div>
+      <div class="form-grid three"><label>Species<select id="predictSpecies"><option value="">Choose one</option></select></label><label>Presentation Style<select id="predictPresentationStyle"><option value="">Choose one</option><option>Dead Drift</option><option>Swing</option><option>Strip</option><option>Twitch</option><option>Jig</option><option>Under Bobber</option><option>Bottom Bounce</option><option>Trolling</option><option>Static</option></select></label><label>Bait Type<select id="predictBaitType"><option value="">Choose one</option><option>Fly</option><option>Lure</option><option>Live Bait</option><option>Cut Bait</option></select></label></div>
+    </div>
+    <div class="divider"></div>
+    <div class="section">
+      <div class="section-title">Conditions</div>
+      <div class="form-grid four"><label>Sky<select id="predictSky"><option value="">Choose one</option><option>Clear</option><option>Cloudy</option><option>Rain</option><option>Night</option></select></label><label>Air Temp (°F)<input type="number" id="predictAirTemp"></label><label>Water Temp (°F)<input type="number" id="predictWaterTemp"></label><label>Water Clarity<select id="predictWaterClarity"><option value="">Choose one</option><option>Clear</option><option>Stained</option><option>Muddy</option></select></label></div>
+      <div class="form-grid four"><label>Depth Zone<select id="predictDepthZone"><option value="">Choose one</option><option>Surface</option><option>Mid-Column</option><option>Bottom</option></select></label><label>Structure<select id="predictStructureType"><option value="">Choose one</option><option>Pool</option><option>Riffle</option><option>Run</option><option>Seam</option><option>Undercut Bank</option><option>Logjam</option><option>Weed Edge</option><option>Rocky Bank</option><option>Current Break</option><option>Drop-off</option><option>Inlet / Outlet</option><option>Open Water</option><option>Shoreline</option></select></label><label>Wind<input type="text" id="predictWind" placeholder="Optional"></label><label>Notes<input type="text" id="predictNotes" placeholder="Anything worth tracking later"></label></div>
+    </div>
+    <div class="button-row"><button type="button" id="predictNotLiveBtn" class="secondaryBtn">Prediction Not Live Yet</button></div>
+  </form>
+</div>
+
 <div id="filterSheet" class="sheet" aria-hidden="true">
   <div class="sheet-handle"></div>
   <div class="sheet-head"><div><h2>Filters</h2><p>Keep the map from turning into point soup.</p></div><button id="closeFilterSheetBtn" class="sheetClose" type="button">Close</button></div>
   <div class="form-grid two"><label>From Date<input type="date" id="filterDateFrom"></label><label>To Date<input type="date" id="filterDateTo"></label></div>
-  <div class="form-grid two"><label>Species<select id="filterSpecies"><option value="">All</option></select></label><label>Main Color<select id="filterColor"><option value="">All</option></select></label></div>
+  <div class="form-grid two"><label>Species<select id="filterSpecies"><option value="">All</option></select></label><label>Color<select id="filterColor"><option value="">All</option></select></label></div>
   <div class="form-grid two"><label>Bait Type<select id="filterBaitType"><option value="">All</option></select></label><label>Water Type<select id="filterWaterType"><option value="">All</option><option>Stream</option><option>River</option><option>Pond</option><option>Lake</option><option>Great Lake</option></select></label></div>
-  <div class="form-grid two"><label>Time of Day<select id="filterTimeOfDay"><option value="">All</option><option>Dawn</option><option>Morning</option><option>Midday</option><option>Evening</option><option>Night</option></select></label><label>Sky<select id="filterSky"><option value="">All</option><option>Clear</option><option>Cloudy</option><option>Rain</option><option>Night</option></select></label></div>
-  <div class="form-grid two"><label>Retrieve Speed<select id="filterRetrieveSpeed"><option value="">All</option><option>Still</option><option>Drift</option><option>Slow</option><option>Medium</option><option>Fast</option></select></label><label></label></div>
+  <div class="form-grid two"><label>Time of Day<select id="filterTimeOfDay"><option value="">All</option><option>Dawn</option><option>Morning</option><option>Midday</option><option>Afternoon</option><option>Evening</option><option>Night</option></select></label><label>Sky<select id="filterSky"><option value="">All</option><option>Clear</option><option>Cloudy</option><option>Rain</option><option>Night</option></select></label></div>
+  <div class="form-grid two"><label>Speed<select id="filterRetrieveSpeed"><option value="">All</option><option>Slow</option><option>Medium</option><option>Fast</option></select></label><label></label></div>
   <div class="button-row"><button id="resetFiltersBtn" type="button" class="secondaryBtn">Reset Filters</button></div>
 </div>
 

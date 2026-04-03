@@ -49,3 +49,14 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 
 
 .fishingAnglerMarkerIcon{filter:drop-shadow(0 2px 7px rgba(0,0,0,.35));}
+
+.entryList.textOnly{display:flex;flex-direction:column;gap:8px}
+.entryRow{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(9,20,33,.72)}
+.entryRow.empty{display:block;color:#c7d7e6}
+.entryRowMain{font-size:14px;line-height:1.35;color:#e7f0f7}
+.entryRowMain span{color:#b8c9d9}
+.entryRowActions{display:flex;gap:8px;flex:0 0 auto}
+.miniBtn{border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;border-radius:999px;padding:6px 10px;font:inherit}
+.reviewControls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 14px;color:#dbe7f2}
+.reviewControls label{display:flex;align-items:center;gap:6px;font-size:14px}
+.reviewSortLabel{font-weight:700;margin-right:4px}

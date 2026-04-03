@@ -110,3 +110,6 @@ alter table public.fishing_catch_logs add column if not exists owner_is_anonymou
 alter table public.fishing_catch_logs add column if not exists angler_key text;
 alter table public.fishing_catch_logs add column if not exists water_type text;
 alter table public.fishing_catch_logs add column if not exists share_angler_name boolean not null default true;
+
+alter table public.fishing_catch_logs add column if not exists exact_marker_lat double precision;
+alter table public.fishing_catch_logs add column if not exists exact_marker_lng double precision;
