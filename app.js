@@ -1,4 +1,4 @@
-const APP_VERSION='v10.31';
+const APP_VERSION='v10.32';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -133,6 +133,7 @@ const state={
   pendingLocationRequestId:0,
   _mapPickLeafletHandler:null,
   _mapPickDomHandler:null,
+  _lastMapPickAt:0,
   filters:{dateFrom:'',dateTo:'',species:'',color:'',baitType:'',waterType:'',timeOfDay:'',sky:'',retrieveSpeed:''},
   cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true}
 };
@@ -815,35 +816,12 @@ function syncAddLogButton(){
 }
 
 
+
 function setMapPickVisuals(isActive){
   const mapEl=document.getElementById('map');
   if(!mapEl) return;
   mapEl.style.cursor=isActive ? 'crosshair' : '';
-}
-
-function removeMapPickOverlay(){
-  const overlay=state.mapPickOverlay;
-  if(overlay){
-    if(state._mapPickOverlayHandler){
-      overlay.removeEventListener('click', state._mapPickOverlayHandler, true);
-      overlay.removeEventListener('pointerup', state._mapPickOverlayHandler, true);
-      overlay.removeEventListener('touchend', state._mapPickOverlayHandler, true);
-      overlay.removeEventListener('mouseup', state._mapPickOverlayHandler, true);
-    }
-    overlay.remove();
-  }
-  state.mapPickOverlay=null;
-  state._mapPickOverlayHandler=null;
-}
-
-function ensureMapPickOverlay(){
-  removeMapPickOverlay();
-  const overlay=document.createElement('div');
-  overlay.id='mapPickOverlay';
-  overlay.setAttribute('aria-hidden','true');
-  document.body.appendChild(overlay);
-  state.mapPickOverlay=overlay;
-  return overlay;
+  mapEl.classList.toggle('map-pick-armed', !!isActive);
 }
 
 function pointFromClientEvent(event){
@@ -862,8 +840,6 @@ function disarmMapPick(){
     clearTimeout(state._mapPickFallbackTimer);
     state._mapPickFallbackTimer=null;
   }
-  detachMapPickHandlers();
-  removeMapPickOverlay();
   setMapPickVisuals(false);
 }
 
@@ -876,6 +852,7 @@ function cancelAddMode(message=''){
 
 function beginAddLog(){
   cancelAddMode();
+  state.addMode=true;
   closeSheet($('reviewSheet'));
   closeSheet($('filterSheet'));
   closeSheet($('anglerSheet'));
@@ -892,12 +869,12 @@ function beginAddLog(){
 }
 
 async function finishMapPick(lat,lng){
-  if(!state.pickOnMapArmed && !state.addMode) return;
+  if(!state.pickOnMapArmed || !state.addMode) return;
   if(!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))){
     setStatus('Map pick failed. Tap the map again.', 3200);
     return;
   }
-  cancelAddMode();
+  disarmMapPick();
   setDraftMarker(Number(lat),Number(lng),{source:'map',accuracy:null,recenter:false});
   closeAllSheets();
   openSheet($('logSheet'));
@@ -906,19 +883,37 @@ async function finishMapPick(lat,lng){
   setStatus('Spot set from map. Fill out the log and save it.', 3600);
 }
 
-function detachMapPickHandlers(){
-  if(state._mapPickLeafletHandler){
-    map.off('click', state._mapPickLeafletHandler);
-    state._mapPickLeafletHandler=null;
-  }
-  if(state._mapPickDomHandler){
-    map.getContainer().removeEventListener('click', state._mapPickDomHandler, true);
-    map.getContainer().removeEventListener('pointerup', state._mapPickDomHandler, true);
-    map.getContainer().removeEventListener('touchend', state._mapPickDomHandler, true);
-    map.getContainer().removeEventListener('mouseup', state._mapPickDomHandler, true);
-    state._mapPickDomHandler=null;
-  }
+let _mapPickInitialized=false;
+function initializeMapPickHandlers(){
+  if(_mapPickInitialized) return;
+  _mapPickInitialized=true;
+
+  map.on('click', async event=>{
+    if(!state.pickOnMapArmed || !state.addMode) return;
+    if(!event || !event.latlng) return;
+    state._lastMapPickAt=Date.now();
+    await finishMapPick(event.latlng.lat, event.latlng.lng);
+  });
+
+  const fallbackHandler=async event=>{
+    if(!state.pickOnMapArmed || !state.addMode) return;
+    const now=Date.now();
+    if(state._lastMapPickAt && (now - state._lastMapPickAt) < 500) return;
+    if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!==0) return;
+    const ll=pointFromClientEvent(event);
+    if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    state._lastMapPickAt=Date.now();
+    await finishMapPick(ll.lat, ll.lng);
+  };
+
+  const container=map.getContainer();
+  container.addEventListener('pointerup', fallbackHandler, true);
+  container.addEventListener('touchend', fallbackHandler, true);
+  container.addEventListener('mouseup', fallbackHandler, true);
 }
+
 
 function armMapPickHandlers(){
   detachMapPickHandlers();
@@ -954,17 +949,17 @@ function beginPickOnMap(){
   state.pendingLocationRequestId+=1;
   state.addMode=true;
   state.pickOnMapArmed=true;
+  state._lastMapPickAt=0;
   syncAddLogButton();
   closeSheet($('logSheet'));
   closeSheet($('reviewSheet'));
   closeSheet($('filterSheet'));
   closeSheet($('anglerSheet'));
   closeSheet($('predictSheet'));
-  armMapPickHandlers();
   setMapPickVisuals(true);
   setStatus(state.currentDraftMarker ? 'Pick on Map is active. Tap the map once to move the spot.' : 'Pick on Map is active. Tap the map once to set the spot.', 7000);
   $('waterLookupStatus').textContent='Pick on Map is active. Tap the map once to set the fishing spot.';
-  setTimeout(()=>{ try{ map.invalidateSize(); }catch(_e){} }, 50);
+  try{ map.invalidateSize(); }catch(_e){}
 }
 
 function supportsGeolocation(){
@@ -1899,6 +1894,7 @@ $('anglerNameInput').addEventListener('input',()=>{ const demoName=String($('ang
 $('locationShareLevelInput').addEventListener('change',()=>{ const demoName=String($('anglerNameInput').value || '').trim() || 'Anonymous'; $('anglerPreviewBox').textContent=`Shared as ${$('shareAnglerNameInput').value==='No' ? 'Anonymous' : demoName} · ${normalizeLocationShareLevel($('locationShareLevelInput').value)}`; });
 $('clearSpotBtn').addEventListener('click',event=>{ event.preventDefault(); event.stopPropagation(); clearDraftMarker(); });
 rewireLocationButtons();
+initializeMapPickHandlers();
 $('resetFiltersBtn').addEventListener('click',()=>{
   $('filterDateFrom').value='';
   $('filterDateTo').value='';
