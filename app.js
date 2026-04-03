@@ -1,4 +1,5 @@
-const APP_VERSION='v10.25';
+const APP_VERSION='v10.26';
+const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
@@ -9,15 +10,15 @@ const DEFAULT_CENTER=[46.62,-87.67];
 const DEFAULT_ZOOM=9;
 const DEFAULT_LOG_ZOOM=14;
 const DEFAULT_ANGLER_SETTINGS={name:localStorage.getItem('fishingLogbook.currentAngler')||localStorage.getItem('fishMap.currentAngler')||'Tod', key:'', shareName:true, locationShareLevel:'Water Type Only'};
-const COLOR_SOLID_OPTIONS=['Black','Blue','Brown','Chartreuse','Copper','Cream','Gold','Gray','Green','Orange','Pink','Purple','Red','Silver','White','Yellow'];
-const COLOR_COMBO_OPTIONS=['Black / Gold','Black / Silver','Blue / Silver','Brown / Orange','Fire Tiger','Glow','Gold / Red','Natural','Perch','Rainbow','Silver / Black','Silver / Blue','Silver / Chartreuse','White / Chartreuse','White / Pink','White / Red'];
-const COLOR_OPTIONS=[...COLOR_SOLID_OPTIONS, ...COLOR_COMBO_OPTIONS];
-const ANGLER_MARKER_COLORS=['#2563eb','#dc2626','#16a34a','#ea580c','#7c3aed','#0891b2','#c026d3','#65a30d','#b45309','#be123c','#0f766e','#4f46e5'];
+const COLOR_SOLID_OPTIONS=FishingVocab.COLOR_SOLID_OPTIONS || ['Black','Blue','Brown','Chartreuse','Copper','Cream','Gold','Gray','Green','Orange','Pink','Purple','Red','Silver','White','Yellow'];
+const COLOR_COMBO_OPTIONS=FishingVocab.COLOR_COMBO_OPTIONS || ['Black / Gold','Black / Silver','Blue / Silver','Brown / Orange','Fire Tiger','Glow','Gold / Red','Natural','Perch','Rainbow','Silver / Black','Silver / Blue','Silver / Chartreuse','White / Chartreuse','White / Pink','White / Red'];
+const COLOR_OPTIONS=FishingVocab.COLOR_OPTIONS || [...COLOR_SOLID_OPTIONS, ...COLOR_COMBO_OPTIONS];
+const ANGLER_MARKER_COLORS=FishingVocab.ANGLER_MARKER_COLORS || ['#2563eb','#dc2626','#16a34a','#ea580c','#7c3aed','#0891b2','#c026d3','#65a30d','#b45309','#be123c','#0f766e','#4f46e5'];
 const DEFAULT_FISHING_SUPABASE_CONFIG={url:'',anonKey:'',table:'fishing_catch_logs',appId:'fishing_logbook_shared',autoSyncOnLoad:true,autoSyncOnSave:true};
-const FLY_TYPES=['Dry','Nymph','Streamer','Emerger','Wet Fly','Terrestrial','Other'];
-const LURE_TYPES=['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'];
-const LIVE_BAIT_TYPES=['Minnow','Crawler','Worm','Cut Bait','Spawn','Waxworm / Wiggler','Leech','Grasshopper','Other'];
-const MIDWEST_FISH_SPECIES=[
+const FLY_TYPES=FishingVocab.FLY_TYPES || ['Dry','Nymph','Streamer','Emerger','Wet Fly','Terrestrial','Other'];
+const LURE_TYPES=FishingVocab.LURE_TYPES || ['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'];
+const LIVE_BAIT_TYPES=FishingVocab.LIVE_BAIT_TYPES || ['Minnow','Crawler','Worm','Cut Bait','Spawn','Waxworm / Wiggler','Leech','Grasshopper','Other'];
+const MIDWEST_FISH_SPECIES=FishingVocab.MIDWEST_FISH_SPECIES || [
   'Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bullhead','Burbot','Channel Catfish',
   'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Flathead Catfish','Freshwater Drum','Gar','Hybrid Striped Bass',
   'Lake Sturgeon','Lake Trout','Lake Whitefish','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed',
@@ -1557,20 +1558,27 @@ function clearDraftMarker(){
 }
 
 function openSheet(el){
+  if(window.SheetController) return window.SheetController.open(el);
   el.classList.add('visible');
   el.setAttribute('aria-hidden','false');
 }
 
 function closeSheet(el){
+  if(window.SheetController) return window.SheetController.close(el);
   el.classList.remove('visible');
   el.setAttribute('aria-hidden','true');
 }
 
 function closeAllSheets(){
+  if(window.SheetController) return window.SheetController.closeAll(['logSheet','anglerSheet','reviewSheet','predictSheet','filterSheet']);
   ['logSheet','anglerSheet','reviewSheet','predictSheet','filterSheet'].forEach(id=>closeSheet($(id)));
 }
 
 function wireGenericSheetCloseButtons(){
+  if(window.SheetController){
+    window.SheetController.bindGenericCloseButtons({ onLogClose: ()=>cancelAddMode() });
+    return;
+  }
   document.querySelectorAll('.sheetClose').forEach(btn=>{
     btn.addEventListener('click', event=>{
       event.preventDefault();
