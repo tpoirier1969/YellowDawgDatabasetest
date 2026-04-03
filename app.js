@@ -1,4 +1,4 @@
-const APP_VERSION='v10.34.0';
+const APP_VERSION='v10.35.0';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -18,6 +18,20 @@ const DEFAULT_FISHING_SUPABASE_CONFIG={url:'',anonKey:'',table:'fishing_catch_lo
 const FLY_TYPES=FishingVocab.FLY_TYPES || ['Dry','Nymph','Streamer','Emerger','Wet Fly','Terrestrial','Other'];
 const LURE_TYPES=FishingVocab.LURE_TYPES || ['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'];
 const LIVE_BAIT_TYPES=FishingVocab.LIVE_BAIT_TYPES || ['Minnow','Crawler','Worm','Cut Bait','Spawn','Waxworm / Wiggler','Leech','Grasshopper','Other'];
+const ICE_FISHING_TYPES=['Jigging Spoon','Jigging Rap / Glide Bait','Tungsten Jig','Tip-Up Bait','Deadstick Rig','Live Minnow','Waxworm / Euro Larva','Soft Plastic','Dead Bait','Other'];
+const SKY_OPTIONS=['Clear','Partly Cloudy','Cloudy','Rain','Snow','Night'];
+const LAKE_WATER_LEVEL_OPTIONS=['Low','Normal','High'];
+const RIVER_WATER_LEVEL_OPTIONS=['Low','Normal','High','Bankfull'];
+const LAKE_SURFACE_OPTIONS=['Still','Rippled','Choppy','Wavy','Rolling','Rough'];
+const RIVER_CURRENT_OPTIONS=['Slow','Medium','Strong','Fast','Rapids'];
+const LAKE_STRUCTURE_TYPES=['Weed Edge','Rock Pile','Drop-off','Point','Flat','Hump','Shoal','Reef','Inside Turn','Outside Turn','Inlet / Outlet','Dock','Marina','Shoreline','Open Water','Timber'];
+const RIVER_STRUCTURE_TYPES=['Pool','Riffle','Run','Seam','Undercut Bank','Logjam','Boulder','Current Break','Eddy','Tailout','Bend','Cut Bank','Inside Turn','Pocket Water','Tributary Mouth','Bridge Area'];
+const PRESENTATION_OPTIONS={
+  'Fly':{styles:['Dead Drift','Swing','Strip','Skate','Nymph Under Indicator','Tight Line / Euro','Dry Fly','Popper'],depths:['Surface','Just Under Surface','Mid-Column','Near Bottom','Bottom'],speeds:['Dead Drift','Slow','Medium','Fast']},
+  'Lure':{styles:['Steady Retrieve','Twitch','Jig','Rip','Burn','Trolling','Stop-and-Go','Wake'],depths:['Surface','Shallow','Mid-Column','Deep','Bottom'],speeds:['Slow','Medium','Fast','Erratic']},
+  'Live Bait':{styles:['Under Bobber','Slip Float','Bottom Rig','Drift','Free Line','Tip-Up'],depths:['Surface','Shallow','Mid-Column','Near Bottom','Bottom'],speeds:['Static','Slow Drift','Controlled Drift']},
+  'Ice':{styles:['Jig','Deadstick','Tip-Up','Lift and Drop','Pound Bottom','Hover','Swim'],depths:['Just Under Ice','Upper Column','Mid-Column','Near Bottom','Bottom'],speeds:['Still','Subtle','Moderate','Aggressive']}
+};
 const MIDWEST_FISH_SPECIES=FishingVocab.MIDWEST_FISH_SPECIES || [
   'Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bullhead','Burbot','Channel Catfish',
   'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Flathead Catfish','Freshwater Drum','Gar','Hybrid Striped Bass',
@@ -486,6 +500,8 @@ function normalizeEntry(entry={}){
     waterTemp:entry.waterTemp==='' || entry.waterTemp==null ? null : Number(entry.waterTemp),
     waterDepthFt:entry.waterDepthFt==='' || entry.waterDepthFt==null ? null : Number(entry.waterDepthFt),
     wind:entry.wind || '',
+    surfaceCondition:entry.surfaceCondition || '',
+    currentSpeed:entry.currentSpeed || '',
     hatches:entry.hatches || '',
     notes:entry.notes || '',
     locationSource:entry.locationSource || '',
@@ -588,6 +604,8 @@ async function entryToCloudRow(entry){
     sky_condition:entry.skyCondition || null,
     water_condition:entry.waterCondition || null,
     water_clarity:entry.waterClarity || null,
+    surface_condition:entry.surfaceCondition || null,
+    current_speed:entry.currentSpeed || null,
     depth_zone:entry.depthZone || null,
     retrieve_speed:entry.retrieveSpeed || null,
     presentation_style:entry.presentationStyle || null,
@@ -643,6 +661,8 @@ function cloudRowToEntry(row){
     skyCondition:row.sky_condition || '',
     waterCondition:row.water_condition || '',
     waterClarity:row.water_clarity || '',
+    surfaceCondition:row.surface_condition || '',
+    currentSpeed:row.current_speed || '',
     depthZone:row.depth_zone || '',
     retrieveSpeed:row.retrieve_speed || '',
     presentationStyle:row.presentation_style || '',
@@ -760,13 +780,13 @@ function validateLogForm(){
     ['Time of Day',$('timeOfDay').value],
     ['Body of Water',$('waterName').value.trim()],
     ['Water Type',$('waterType').value],
-    ['Water Conditions',$('waterCondition').value],
+    ['Water Level',$('waterCondition').value],
     ['Sky',$('skyCondition').value],
     ['Water Clarity',$('waterClarity').value],
+    ['Structure',$('structureType').value],
+    ['Fishing Type',$('baitType').value],
     ['Presentation Style',$('presentationStyle').value],
     ['Presented Depth',$('depthZone').value],
-    ['Structure Type',$('structureType').value],
-    ['Bait Type',$('baitType').value],
     ['Species',$('species').value],
     ['Size (inches)',$('sizeInches').value],
     ['Quantity',$('quantity').value]
@@ -774,6 +794,8 @@ function validateLogForm(){
   for(const [label, value] of requiredChecks){
     if(!String(value || '').trim()) return label;
   }
+  if(isRiverLikeWaterType($('waterType').value) && !$('currentSpeed').value) return 'Current';
+  if(!isRiverLikeWaterType($('waterType').value) && !$('surfaceCondition').value) return 'Surface Conditions';
   if($('baitType').value==='Fly'){
     if(!$('baitSubtype').value) return 'Fly Type';
     if(!$('baitName').value.trim()) return 'Fly Pattern';
@@ -781,9 +803,10 @@ function validateLogForm(){
   }
   if($('baitType').value==='Lure'){
     if(!$('baitSubtype').value) return 'Lure Type';
-    if(!$('mainColor').value) return 'Main Color';
+    if(!$('mainColor').value) return 'Lure Color';
   }
   if($('baitType').value==='Live Bait' && !$('baitSubtype').value) return 'Bait Type';
+  if($('baitType').value==='Ice' && !$('baitSubtype').value) return 'Ice Setup';
   if(!state.currentDraftMarker) return 'Fishing Spot';
   return '';
 }
@@ -1017,7 +1040,7 @@ function updateLocationSummary(lat,lng,accuracy=null,source=''){
     summary.classList.add('hidden');
     return;
   }
-  const bits=[locationSourceLabel(source), `${formatCoord(lat)}, ${formatCoord(lng)}`];
+  const bits=[locationSourceLabel(source), 'Spot locked in on the map'];
   if(Number.isFinite(accuracy)) bits.push(`±${Math.round(accuracy)} m`);
   summary.textContent=bits.join(' · ');
   summary.classList.remove('hidden');
@@ -1025,8 +1048,7 @@ function updateLocationSummary(lat,lng,accuracy=null,source=''){
 
 function updateDraftMarkerPopup(){
   if(!state.currentDraftMarker) return;
-  const ll=state.currentDraftMarker.getLatLng();
-  const bits=[locationSourceLabel(state.currentDraftMeta.source), `${formatCoord(ll.lat)}, ${formatCoord(ll.lng)}`];
+  const bits=[locationSourceLabel(state.currentDraftMeta.source), 'Fishing spot'];
   if(Number.isFinite(state.currentDraftMeta.accuracy)) bits.push(`±${Math.round(state.currentDraftMeta.accuracy)} m`);
   state.currentDraftMarker.bindPopup(bits.join(' · '));
 }
@@ -1187,6 +1209,8 @@ function applySubtypeColorDefaults(){
 
 function updateColorFieldVisibility(){
   const isLure=$('baitType').value==='Lure';
+  const grid=$('lureColorGrid');
+  if(grid) grid.classList.toggle('hidden', !isLure);
   ['mainColorWrap','additionalColorWrap'].forEach(id=>{ const el=$(id); if(el) el.classList.toggle('hidden', !isLure); });
   $('mainColor').required=isLure;
   if(!isLure){ $('mainColor').value=''; $('additionalColor').value=''; }
@@ -1203,6 +1227,49 @@ function getTimeOfDayForNow(dateObj=new Date()){
 }
 
 
+
+function isRiverLikeWaterType(value=''){
+  return value==='River' || value==='Stream';
+}
+
+function syncMirroredConditionFields(){
+  if($('waterClarityRiverClone')) $('waterClarityRiverClone').value=$('waterClarity').value;
+  if($('waterDepthFtRiverClone')) $('waterDepthFtRiverClone').value=$('waterDepthFt').value;
+}
+
+function updateConditionFieldsForWaterType(){
+  const waterType=$('waterType').value;
+  const riverLike=isRiverLikeWaterType(waterType);
+  const waterCondition=$('waterCondition');
+  const structure=$('structureType');
+  const surfaceWrap=$('surfaceConditionWrap');
+  const currentWrap=$('currentSpeedWrap');
+  document.querySelectorAll('.condition-grid-lake').forEach(el=>el.classList.toggle('hidden', riverLike));
+  document.querySelectorAll('.condition-grid-river').forEach(el=>el.classList.toggle('hidden', !riverLike));
+  setOptions(waterCondition, riverLike ? RIVER_WATER_LEVEL_OPTIONS : LAKE_WATER_LEVEL_OPTIONS, 'Choose one');
+  setOptions(structure, riverLike ? RIVER_STRUCTURE_TYPES : LAKE_STRUCTURE_TYPES, 'Choose one');
+  if(surfaceWrap) surfaceWrap.classList.toggle('hidden', riverLike);
+  if(currentWrap) currentWrap.classList.toggle('hidden', !riverLike);
+  if($('surfaceCondition')) $('surfaceCondition').required=!riverLike;
+  if($('currentSpeed')) $('currentSpeed').required=riverLike;
+  if(riverLike){
+    setOptions($('currentSpeed'), RIVER_CURRENT_OPTIONS, 'Choose one');
+    if($('surfaceCondition')) $('surfaceCondition').value='';
+  }else{
+    setOptions($('surfaceCondition'), LAKE_SURFACE_OPTIONS, 'Choose one');
+    if($('currentSpeed')) $('currentSpeed').value='';
+  }
+  syncMirroredConditionFields();
+}
+
+function updatePresentationOptions(){
+  const type=$('baitType').value;
+  const profile=PRESENTATION_OPTIONS[type] || {styles:[],depths:[],speeds:[]};
+  setOptions($('presentationStyle'), profile.styles, 'Choose one');
+  setOptions($('depthZone'), profile.depths, 'Choose one');
+  setOptions($('retrieveSpeed'), profile.speeds, 'Choose one');
+}
+
 function updateHatchesVisibility(){
   const wrap=$('hatchesWrap');
   const show=$('baitType').value==='Fly';
@@ -1215,6 +1282,7 @@ function updateBaitHelperContext(){
   const subtype=$('baitSubtype').value;
   if(type==='Fly'){
     if(!$('baitName').value.trim()) setBaitHelper('Start typing a fly pattern to see matches and suggested sizes.');
+    else setBaitHelper('Fly fishing selected. Hatch appears only here, where it belongs.');
     return;
   }
   if(type==='Lure'){
@@ -1222,10 +1290,14 @@ function updateBaitHelperContext(){
     return;
   }
   if(type==='Live Bait'){
-    setBaitHelper(subtype ? `Live bait selected: ${subtype}.` : 'Choose bait type first.');
+    setBaitHelper(subtype ? `Bait selected: ${subtype}.` : 'Choose your bait approach first.');
     return;
   }
-  setBaitHelper('Choose bait type first.');
+  if(type==='Ice'){
+    setBaitHelper(subtype ? `Ice fishing setup: ${subtype}.` : 'Choose an ice setup and then set presentation style, depth, and speed.');
+    return;
+  }
+  setBaitHelper('Choose your fishing type first.');
 }
 
 function applyBaitTypeUI(){
@@ -1244,6 +1316,7 @@ function applyBaitTypeUI(){
   baitSize.required=false;
   baitName.disabled=false;
   baitName.required=false;
+  updatePresentationOptions();
   updateHatchesVisibility();
 
   if(type==='Fly'){
@@ -1276,6 +1349,14 @@ function applyBaitTypeUI(){
     setLabelText($('subtypeWrap'), 'Bait Type');
     baitSubtype.required=true;
     baitName.disabled=true;
+  } else if(type==='Ice'){
+    $('subtypeWrap').classList.remove('hidden');
+    $('sizeWrap').classList.add('hidden');
+    $('nameWrap').classList.add('hidden');
+    setOptions(baitSubtype, ICE_FISHING_TYPES, 'Choose ice setup');
+    setLabelText($('subtypeWrap'), 'Ice Setup');
+    baitSubtype.required=true;
+    baitName.disabled=true;
   } else {
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
@@ -1283,11 +1364,12 @@ function applyBaitTypeUI(){
     setOptions(baitSubtype, [], 'Choose one');
     setLabelText($('subtypeWrap'), 'Subtype');
     setLabelText($('nameLabel'), 'Name');
-    baitName.placeholder='Choose bait type first...';
+    baitName.placeholder='Choose fishing type first...';
     baitName.disabled=true;
   }
   updateColorFieldVisibility();
   updateHatchesVisibility();
+  updatePresentationOptions();
   updateBaitHelperContext();
 }
 
@@ -1336,6 +1418,7 @@ async function detectNearbyWater(lat,lng){
       if(fallbackName){
         $('waterName').value=fallbackName;
         $('waterType').value=determineWaterType({waterName:fallbackName, lat, lng});
+        updateConditionFieldsForWaterType();
         refreshSharingSummary();
         $('waterLookupStatus').textContent=`Fallback matched: ${fallbackName}.`;
         return;
@@ -1346,6 +1429,7 @@ async function detectNearbyWater(lat,lng){
     if(candidates.length===1){
       $('waterName').value=candidates[0].name;
       $('waterType').value=determineWaterType({waterName:candidates[0].name, candidateType:candidates[0].featureLabel, lat, lng});
+      updateConditionFieldsForWaterType();
       refreshSharingSummary();
       $('waterLookupStatus').textContent=`Overpass matched: ${candidates[0].name}.`;
       return;
@@ -1594,7 +1678,8 @@ function render(){
     const detail=[entry.species||'—', entry.sizeInches!=null ? `${entry.sizeInches}"` : '', entry.quantity && entry.quantity!==1 ? `x${entry.quantity}` : ''].filter(Boolean).join(' · ');
     const water=getSharedWaterLabel(entry);
     const bait=[entry.baitType, entry.baitSubtype || '', getEntryBaitLabel(entry)].filter(Boolean).join(' · ');
-    const conditions=[entry.skyCondition, entry.wind || '', entry.waterCondition, entry.waterClarity, entry.timeOfDay].filter(Boolean).join(' · ');
+    const waterMotion=isRiverLikeWaterType(entry.waterType) ? entry.currentSpeed : entry.surfaceCondition;
+    const conditions=[entry.skyCondition, entry.wind || '', entry.waterCondition, entry.waterClarity, waterMotion || '', entry.timeOfDay].filter(Boolean).join(' · ');
     const locateDisabled=!getDrawableMarker(entry) ? ' disabled' : '';
     const row=document.createElement('div');
     row.className='entryRow';
@@ -1630,6 +1715,7 @@ async function onSubmit(event){
     if(raw.baitType==='Fly') baitName=(raw.baitName||'').trim();
     if(raw.baitType==='Lure') baitName=(raw.baitName||'').trim() || raw.baitSubtype || '';
     if(raw.baitType==='Live Bait') baitName=raw.baitSubtype || '';
+    if(raw.baitType==='Ice') baitName=raw.baitSubtype || '';
     if(!baitName) throw new Error('Bait details are incomplete.');
     if(!state.currentDraftMarker) throw new Error('Fishing spot is missing.');
     const ll=state.currentDraftMarker.getLatLng();
@@ -1662,6 +1748,8 @@ async function onSubmit(event){
       skyCondition:raw.skyCondition,
       waterCondition:raw.waterCondition,
       waterClarity:raw.waterClarity,
+      surfaceCondition:raw.surfaceCondition || '',
+      currentSpeed:raw.currentSpeed || '',
       depthZone:raw.depthZone,
       retrieveSpeed:raw.retrieveSpeed,
       presentationStyle:raw.presentationStyle,
@@ -1708,8 +1796,10 @@ function clearFormAfterSave(){
   applyLogDateTimeDefaults();
   clearDraftMarker();
   $('waterType').value='';
+  updateConditionFieldsForWaterType();
   refreshSharingSummary();
   applyBaitTypeUI();
+  syncMirroredConditionFields();
 }
 
 function clearDraftMarker(){
@@ -1718,8 +1808,11 @@ function clearDraftMarker(){
   if($('waypointName')) $('waypointName').value='';
   $('waterType').value='';
   if($('waterCondition')) $('waterCondition').value='';
+  if($('surfaceCondition')) $('surfaceCondition').value='';
+  if($('currentSpeed')) $('currentSpeed').value='';
   clearWaterSuggestions();
   $('waterLookupStatus').textContent='Tap Add Log to use your phone location, or pick a spot on the map.';
+  updateConditionFieldsForWaterType();
   refreshSharingSummary();
   updateLocationSummary();
   state.currentDraftMeta={source:'',accuracy:null};
@@ -1901,6 +1994,8 @@ function rewireLocationButtons(){
 populateSpeciesOptions();
 populateColorOptions();
 populateFilterDropdowns();
+setOptions($('skyCondition'), SKY_OPTIONS, 'Choose one');
+updateConditionFieldsForWaterType();
 refreshAnglerUi();
 $('anglerSetupBtn').addEventListener('click',()=>{ refreshAnglerUi(); openSheet($('anglerSheet')); closeSheet($('logSheet')); closeSheet($('reviewSheet')); closeSheet($('filterSheet')); });
 $('addLogBtn').addEventListener('click',beginAddLog);
@@ -2032,14 +2127,18 @@ $('waterName').addEventListener('input',()=>{
   if(!waterName) clearWaterSuggestions();
   const inferred=inferWaterTypeFromName(waterName);
   if(inferred) $('waterType').value=inferred;
+  updateConditionFieldsForWaterType();
   refreshSharingSummary();
 });
-$('waterType').addEventListener('change',refreshSharingSummary);
+$('waterType').addEventListener('change',()=>{ updateConditionFieldsForWaterType(); refreshSharingSummary(); });
+$('waterClarity').addEventListener('change',syncMirroredConditionFields);
+$('waterDepthFt').addEventListener('input',syncMirroredConditionFields);
 $('saveBtn').addEventListener('click',()=>{
   const missingField=validateLogForm();
   if(missingField) setStatus(`Missing or incomplete: ${missingField}.`, 3600);
 });
 $('logForm').addEventListener('submit',onSubmit);
+updateConditionFieldsForWaterType();
 applyBaitTypeUI();
 syncAddLogButton();
 updateCloudUi();

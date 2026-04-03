@@ -189,3 +189,20 @@ body.action-dock-hidden #statusBadge{bottom:calc(var(--safe-bottom) + 56px);}
   .noticeBanner{font-size:12px;}
   #floatingActions .pill{font-size:14px;min-height:50px;}
 }
+
+
+/* v10.35.0 unified field sizing and section cleanup */
+label{font-size:13px;font-weight:700;}
+input,select,textarea,.pill,.primaryBtn,.secondaryBtn,.sheetClose,.entryBtn{min-height:48px;}
+input,select,textarea{padding:12px 13px;}
+select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(45deg,transparent 50%, rgba(255,255,255,.75) 50%),linear-gradient(135deg,rgba(255,255,255,.75) 50%, transparent 50%);background-position:calc(100% - 18px) calc(50% - 3px),calc(100% - 12px) calc(50% - 3px);background-size:6px 6px,6px 6px;background-repeat:no-repeat;padding-right:34px;}
+#locationSummary{margin-top:-2px;}
+.field-no-margin{margin-bottom:0;}
+#lureColorGrid.hidden{display:none !important;}
+#surfaceConditionWrap.hidden,#currentSpeedWrap.hidden{display:none !important;}
+.section + .divider{margin-top:16px;}
+@media (max-width:900px){.form-grid.keep-three{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:680px){.form-grid.keep-three{grid-template-columns:1fr 1fr;}.form-grid.four.compact-grid{grid-template-columns:1fr 1fr;}}
+@media (max-width:420px){.form-grid.keep-three,.form-grid.four.compact-grid{grid-template-columns:1fr;}}
+
+.condition-grid-lake.hidden,.condition-grid-river.hidden{display:none !important;}

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fishing Logbook v10.34.1</title>
+<title>Fishing Logbook v10.35.0</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -13,7 +13,7 @@
 </head>
 <body>
 <div id="map"></div>
-<div id="topBadge" class="glass">Fishing Logbook v10.34.1</div>
+<div id="topBadge" class="glass">Fishing Logbook v10.35.0</div>
 <div id="buildNotice" class="noticeBanner">This app is still in development. Issues may arise as features are added but they will be fixed shortly, provided I'm not out casting a fly.</div>
 <div id="statusBadge" class="glass hidden">Ready.</div>
 
@@ -40,7 +40,7 @@
 
   <form id="logForm" autocomplete="off" novalidate>
     <div class="section">
-      <div class="section-title">Location</div>
+      <div class="section-title">Trip</div>
       <div class="helper-box" id="waterLookupStatus">Tap Add Log to use your phone location, or pick a spot on the map.</div>
       <div class="location-actions compact-actions">
         <button type="button" id="useDeviceLocationBtn" class="secondaryBtn">Use My Location</button>
@@ -69,9 +69,9 @@
             <option>Great Lake</option>
           </select>
         </label>
-        <label>Water Conditions
+        <label>Water Level
           <select id="waterCondition" name="waterCondition" required>
-            <option value="">Choose one</option><option>Low</option><option>Average</option><option>High</option>
+            <option value="">Choose one</option>
           </select>
         </label>
       </div>
@@ -82,75 +82,108 @@
     <div class="section">
       <div class="section-title">Conditions</div>
       <div class="form-grid keep-three compact-grid">
+        <label>Air Temp (°F)<input type="number" id="airTemp" name="airTemp"></label>
         <label>Sky
           <select id="skyCondition" name="skyCondition" required>
-            <option value="">Choose one</option><option>Clear</option><option>Cloudy</option><option>Rain</option><option>Night</option>
+            <option value="">Choose one</option>
+            <option>Clear</option><option>Partly Cloudy</option><option>Cloudy</option><option>Rain</option><option>Snow</option><option>Night</option>
           </select>
         </label>
-        <label>Air Temp (°F)<input type="number" id="airTemp" name="airTemp"></label>
-        <label>Wind<input type="text" id="wind" name="wind" placeholder="10 mph NW"></label>
-      </div>
-      <div class="form-grid keep-two compact-grid">
         <label>Water Temp (°F)<input type="number" id="waterTemp" name="waterTemp"></label>
+      </div>
+      <div class="form-grid keep-three compact-grid condition-grid-lake">
         <label>Water Clarity
           <select id="waterClarity" name="waterClarity" required>
-            <option value="">Choose one</option><option>Clear</option><option>Stained</option><option>Muddy</option>
+            <option value="">Choose one</option><option>Gin Clear</option><option>Clear</option><option>Slight Stain</option><option>Stained</option><option>Muddy</option>
           </select>
         </label>
-      </div>
-      <div class="form-grid keep-two compact-grid">
-        <label>Structure Type
-          <select id="structureType" name="structureType" required>
-            <option value="">Choose one</option><option>Pool</option><option>Riffle</option><option>Run</option><option>Seam</option><option>Undercut Bank</option><option>Logjam</option><option>Weed Edge</option><option>Rocky Bank</option><option>Current Break</option><option>Drop-off</option><option>Inlet / Outlet</option><option>Open Water</option><option>Shoreline</option>
-          </select>
-        </label>
+        <div id="surfaceConditionWrap">
+          <label>Surface Conditions
+            <select id="surfaceCondition" name="surfaceCondition">
+              <option value="">Choose one</option>
+            </select>
+          </label>
+        </div>
         <label>Water Depth (ft)<input type="number" id="waterDepthFt" name="waterDepthFt" min="0" step="0.1" placeholder="Optional"></label>
       </div>
-      <div class="form-grid keep-two compact-grid">
-        <label>Presentation Style
-          <select id="presentationStyle" name="presentationStyle" required>
-            <option value="">Choose one</option><option>Dead Drift</option><option>Swing</option><option>Strip</option><option>Twitch</option><option>Jig</option><option>Under Bobber</option><option>Bottom Bounce</option><option>Trolling</option><option>Static</option>
+      <div class="form-grid keep-three compact-grid condition-grid-river">
+        <label>Water Clarity
+          <select id="waterClarityRiverClone" name="waterClarityRiverClone" disabled>
+            <option value="">Choose one</option><option>Gin Clear</option><option>Clear</option><option>Slight Stain</option><option>Stained</option><option>Muddy</option>
           </select>
         </label>
-        <label>Presented Depth
-          <select id="depthZone" name="depthZone" required>
-            <option value="">Choose one</option><option>Surface</option><option>Mid-Column</option><option>Bottom</option>
-          </select>
-        </label>
+        <div id="currentSpeedWrap">
+          <label>Current
+            <select id="currentSpeed" name="currentSpeed">
+              <option value="">Choose one</option>
+            </select>
+          </label>
+        </div>
+        <label>Water Depth (ft)<input type="number" id="waterDepthFtRiverClone" name="waterDepthFtRiverClone" min="0" step="0.1" placeholder="Optional" disabled></label>
       </div>
-      <div id="hatchesWrap" class="hidden">
-        <label>Hatches<input type="text" id="hatches" name="hatches" placeholder="Hex, caddis, bwo, none..."></label>
+      <div class="form-grid keep-two compact-grid">
+        <label>Structure
+          <select id="structureType" name="structureType" required>
+            <option value="">Choose one</option>
+          </select>
+        </label>
+        <label>Wind
+          <select id="wind" name="wind">
+            <option value="">Choose one</option>
+            <option>Calm</option><option>Light</option><option>Moderate</option><option>Strong</option><option>Gusting</option>
+          </select>
+        </label>
       </div>
     </div>
 
     <div class="divider"></div>
 
     <div class="section">
-      <div class="section-title">Bait</div>
-      <div class="form-grid three">
-        <label>Bait Type
+      <div class="section-title">Type of Fishing</div>
+      <div class="form-grid keep-two compact-grid">
+        <label>Fishing Type
           <select id="baitType" name="baitType" required>
-            <option value="">Choose one</option><option>Fly</option><option>Lure</option><option>Live Bait</option>
+            <option value="">Choose one</option><option value="Fly">Fly</option><option value="Live Bait">Bait</option><option value="Lure">Lures</option><option value="Ice">Ice</option>
           </select>
         </label>
         <label id="subtypeWrap">Subtype
           <select id="baitSubtype" name="baitSubtype"><option value="">Choose one</option></select>
         </label>
+      </div>
+
+      <div class="form-grid keep-two compact-grid">
+        <div id="nameWrap" class="typeahead-wrap field-no-margin">
+          <label id="nameLabel">Name
+            <input type="text" id="baitName" name="baitName" placeholder="Choose fishing type first...">
+          </label>
+          <div id="nameSuggestions" class="suggestions hidden"></div>
+        </div>
         <label id="sizeWrap">Fly Size
           <select id="baitSize" name="baitSize"><option value="">Choose one</option></select>
         </label>
       </div>
 
-      <div id="nameWrap" class="typeahead-wrap">
-        <label id="nameLabel">Name
-          <input type="text" id="baitName" name="baitName" placeholder="Choose bait type first...">
+      <div class="helper-box" id="baitHelper">Choose fishing type first.</div>
+
+      <div class="form-grid keep-three compact-grid">
+        <label>Presentation Style
+          <select id="presentationStyle" name="presentationStyle" required>
+            <option value="">Choose one</option>
+          </select>
         </label>
-        <div id="nameSuggestions" class="suggestions hidden"></div>
+        <label>Presented Depth
+          <select id="depthZone" name="depthZone" required>
+            <option value="">Choose one</option>
+          </select>
+        </label>
+        <label>Presentation Speed
+          <select id="retrieveSpeed" name="retrieveSpeed">
+            <option value="">Choose one</option>
+          </select>
+        </label>
       </div>
 
-      <div class="helper-box" id="baitHelper">Choose bait type first.</div>
-
-      <div class="form-grid three">
+      <div class="form-grid keep-two compact-grid" id="lureColorGrid">
         <label id="mainColorWrap">Lure Color
           <select id="mainColor" name="mainColor">
             <option value="">Choose one</option>
@@ -161,19 +194,18 @@
             <option value="">None</option>
           </select>
         </label>
-        <label>Speed
-          <select id="retrieveSpeed" name="retrieveSpeed">
-            <option value="">Optional</option><option>Slow</option><option>Medium</option><option>Fast</option>
-          </select>
-        </label>
+      </div>
+
+      <div id="hatchesWrap" class="hidden">
+        <label>Hatch<input type="text" id="hatches" name="hatches" placeholder="Hex, caddis, bwo, none..."></label>
       </div>
     </div>
 
     <div class="divider"></div>
 
     <div class="section">
-      <div class="section-title">Fish</div>
-      <div class="form-grid four">
+      <div class="section-title">Results</div>
+      <div class="form-grid four compact-grid">
         <label>Species
           <select id="species" name="species" required>
             <option value="">Choose one</option>
