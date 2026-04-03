@@ -1,4 +1,4 @@
-const APP_VERSION='v10.30';
+const APP_VERSION='v10.31';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -128,6 +128,8 @@ const state={
   currentDraftMeta:{source:'',accuracy:null},
   addMode:false,
   pickOnMapArmed:false,
+  mapPickOverlay:null,
+  _mapPickOverlayHandler:null,
   pendingLocationRequestId:0,
   _mapPickLeafletHandler:null,
   _mapPickDomHandler:null,
@@ -819,6 +821,41 @@ function setMapPickVisuals(isActive){
   mapEl.style.cursor=isActive ? 'crosshair' : '';
 }
 
+function removeMapPickOverlay(){
+  const overlay=state.mapPickOverlay;
+  if(overlay){
+    if(state._mapPickOverlayHandler){
+      overlay.removeEventListener('click', state._mapPickOverlayHandler, true);
+      overlay.removeEventListener('pointerup', state._mapPickOverlayHandler, true);
+      overlay.removeEventListener('touchend', state._mapPickOverlayHandler, true);
+      overlay.removeEventListener('mouseup', state._mapPickOverlayHandler, true);
+    }
+    overlay.remove();
+  }
+  state.mapPickOverlay=null;
+  state._mapPickOverlayHandler=null;
+}
+
+function ensureMapPickOverlay(){
+  removeMapPickOverlay();
+  const overlay=document.createElement('div');
+  overlay.id='mapPickOverlay';
+  overlay.setAttribute('aria-hidden','true');
+  document.body.appendChild(overlay);
+  state.mapPickOverlay=overlay;
+  return overlay;
+}
+
+function pointFromClientEvent(event){
+  const touch = event.changedTouches && event.changedTouches[0] ? event.changedTouches[0] : null;
+  const clientX = touch ? touch.clientX : event.clientX;
+  const clientY = touch ? touch.clientY : event.clientY;
+  if(!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+  const rect=map.getContainer().getBoundingClientRect();
+  const point=L.point(clientX-rect.left, clientY-rect.top);
+  return map.containerPointToLatLng(point);
+}
+
 function disarmMapPick(){
   state.pickOnMapArmed=false;
   if(state._mapPickFallbackTimer){
@@ -826,6 +863,7 @@ function disarmMapPick(){
     state._mapPickFallbackTimer=null;
   }
   detachMapPickHandlers();
+  removeMapPickOverlay();
   setMapPickVisuals(false);
 }
 
@@ -888,6 +926,7 @@ function armMapPickHandlers(){
     if(!state.pickOnMapArmed) return;
     await finishMapPick(lat,lng);
   };
+
   state._mapPickLeafletHandler=async event=>{
     if(!state.pickOnMapArmed) return;
     if(!event || !event.latlng) return;
@@ -895,30 +934,20 @@ function armMapPickHandlers(){
   };
   map.once('click', state._mapPickLeafletHandler);
 
-  state._mapPickDomHandler=async event=>{
+  const overlay=ensureMapPickOverlay();
+  state._mapPickOverlayHandler=async event=>{
     if(!state.pickOnMapArmed) return;
     if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!==0) return;
-    let ll=null;
-    try{
-      ll=map.mouseEventToLatLng(event);
-    }catch(_err){
-      const rect=map.getContainer().getBoundingClientRect();
-      const clientX=('clientX' in event) ? event.clientX : null;
-      const clientY=('clientY' in event) ? event.clientY : null;
-      if(Number.isFinite(clientX) && Number.isFinite(clientY)){
-        const point=L.point(clientX-rect.left, clientY-rect.top);
-        ll=map.containerPointToLatLng(point);
-      }
-    }
+    const ll=pointFromClientEvent(event);
     if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
     event.preventDefault();
     event.stopPropagation();
     await done(ll.lat,ll.lng);
   };
-  const container=map.getContainer();
-  container.addEventListener('pointerup', state._mapPickDomHandler, true);
-  container.addEventListener('touchend', state._mapPickDomHandler, true);
-  container.addEventListener('mouseup', state._mapPickDomHandler, true);
+  overlay.addEventListener('click', state._mapPickOverlayHandler, true);
+  overlay.addEventListener('pointerup', state._mapPickOverlayHandler, true);
+  overlay.addEventListener('touchend', state._mapPickOverlayHandler, true);
+  overlay.addEventListener('mouseup', state._mapPickOverlayHandler, true);
 }
 
 function beginPickOnMap(){
@@ -934,6 +963,7 @@ function beginPickOnMap(){
   armMapPickHandlers();
   setMapPickVisuals(true);
   setStatus(state.currentDraftMarker ? 'Pick on Map is active. Tap the map once to move the spot.' : 'Pick on Map is active. Tap the map once to set the spot.', 7000);
+  $('waterLookupStatus').textContent='Pick on Map is active. Tap the map once to set the fishing spot.';
   setTimeout(()=>{ try{ map.invalidateSize(); }catch(_e){} }, 50);
 }
 
@@ -1795,19 +1825,22 @@ $('date').value=new Date().toISOString().slice(0,10);
 wireGenericSheetCloseButtons();
 
 function rewireLocationButtons(){
-  const wire=(id, handler)=>{
-    const existing=$(id);
-    if(!existing) return;
-    const clone=existing.cloneNode(true);
-    existing.replaceWith(clone);
-    clone.addEventListener('click', event=>{
+  const useBtn=$('useDeviceLocationBtn');
+  if(useBtn){
+    useBtn.onclick=event=>{
       event.preventDefault();
       event.stopPropagation();
-      handler();
-    });
-  };
-  wire('useDeviceLocationBtn', ()=>useCurrentLocation());
-  wire('pickOnMapBtn', ()=>beginPickOnMap());
+      useCurrentLocation();
+    };
+  }
+  const pickBtn=$('pickOnMapBtn');
+  if(pickBtn){
+    pickBtn.onclick=event=>{
+      event.preventDefault();
+      event.stopPropagation();
+      beginPickOnMap();
+    };
+  }
 }
 
 populateSpeciesOptions();

@@ -99,3 +99,5 @@ button:disabled { opacity:.6; cursor:not-allowed; }
   .noticeBanner { top: 52px; font-size: 13px; }
   #floatingActions { left: 12px; right: 12px; top: 98px; bottom: auto; }
 }
+
+#mapPickOverlay { position:fixed; inset:0; z-index:950; background:transparent; cursor:crosshair; touch-action:none; }
