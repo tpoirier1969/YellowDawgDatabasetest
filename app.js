@@ -1,4 +1,4 @@
-const APP_VERSION='v10.33.1';
+const APP_VERSION='v10.33.2';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -834,14 +834,12 @@ function pointFromClientEvent(event){
   return map.containerPointToLatLng(point);
 }
 
-function eventHitsLeafletUi(event){
-  const target=event && event.target instanceof Element ? event.target : null;
-  if(!target) return false;
-  return !!target.closest('.leaflet-control-container, .leaflet-control, .leaflet-popup, .leaflet-marker-icon, .leaflet-marker-shadow');
-}
-
 function disarmMapPick(){
   state.pickOnMapArmed=false;
+  if(state._mapPickFallbackTimer){
+    clearTimeout(state._mapPickFallbackTimer);
+    state._mapPickFallbackTimer=null;
+  }
   detachMapPickHandlers();
   setMapPickVisuals(false);
 }
@@ -888,48 +886,70 @@ async function finishMapPick(lat,lng){
 
 
 let _mapPickInitialized=false;
+function ensureMapPickOverlay(){
+  if(state.mapPickOverlay && document.body.contains(state.mapPickOverlay)) return state.mapPickOverlay;
+  const overlay=document.createElement('div');
+  overlay.id='mapPickOverlay';
+  overlay.className='map-pick-overlay';
+  overlay.setAttribute('aria-hidden','true');
+  document.body.appendChild(overlay);
+  state.mapPickOverlay=overlay;
+  return overlay;
+}
+
+function hideMapPickOverlay(){
+  const overlay=ensureMapPickOverlay();
+  overlay.classList.remove('visible');
+  overlay.setAttribute('aria-hidden','true');
+  overlay.style.pointerEvents='none';
+}
+
+function showMapPickOverlay(){
+  const overlay=ensureMapPickOverlay();
+  const mapEl=map.getContainer();
+  const rect=mapEl.getBoundingClientRect();
+  overlay.style.left=rect.left+'px';
+  overlay.style.top=rect.top+'px';
+  overlay.style.width=rect.width+'px';
+  overlay.style.height=rect.height+'px';
+  overlay.classList.add('visible');
+  overlay.setAttribute('aria-hidden','false');
+  overlay.style.pointerEvents='auto';
+}
 
 function detachMapPickHandlers(){
-  if(state._mapPickLeafletHandler){
-    map.off('click', state._mapPickLeafletHandler);
+  const overlay=state.mapPickOverlay;
+  if(overlay && state._mapPickOverlayHandler){
+    ['click','pointerup','touchend','mouseup'].forEach(type=>overlay.removeEventListener(type, state._mapPickOverlayHandler, true));
   }
-  const mapEl=map.getContainer();
-  if(mapEl && state._mapPickDomHandler){
-    ['pointerup','touchend','mouseup','click'].forEach(type=>mapEl.removeEventListener(type, state._mapPickDomHandler, true));
-  }
-  state._mapPickLeafletHandler=null;
-  state._mapPickDomHandler=null;
+  state._mapPickOverlayHandler=null;
+  hideMapPickOverlay();
 }
 
 function initializeMapPickHandlers(){
   if(_mapPickInitialized) return;
   _mapPickInitialized=true;
+  window.addEventListener('resize', ()=>{ if(state.pickOnMapArmed) showMapPickOverlay(); });
+  window.addEventListener('scroll', ()=>{ if(state.pickOnMapArmed) showMapPickOverlay(); }, true);
 }
 
 function armMapPickHandlers(){
   detachMapPickHandlers();
-  const mapEl=map.getContainer();
-  state._mapPickLeafletHandler=async event=>{
+  const overlay=ensureMapPickOverlay();
+  state._mapPickOverlayHandler=async event=>{
     if(!state.pickOnMapArmed || !state.addMode) return;
-    const ll=event && event.latlng ? event.latlng : null;
+    if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!==0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const ll=pointFromClientEvent(event);
     if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)){
       setStatus('Map pick failed. Tap the map again.', 3200);
       return;
     }
     await finishMapPick(ll.lat,ll.lng);
   };
-  state._mapPickDomHandler=async event=>{
-    if(!state.pickOnMapArmed || !state.addMode) return;
-    if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!==0) return;
-    if(eventHitsLeafletUi(event)) return;
-    const ll=pointFromClientEvent(event);
-    if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    await finishMapPick(ll.lat,ll.lng);
-  };
-  map.on('click', state._mapPickLeafletHandler);
-  ['pointerup','touchend','mouseup','click'].forEach(type=>mapEl.addEventListener(type, state._mapPickDomHandler, true));
+  ['click','pointerup','touchend','mouseup'].forEach(type=>overlay.addEventListener(type, state._mapPickOverlayHandler, true));
+  showMapPickOverlay();
 }
 
 function beginPickOnMap(){
@@ -947,11 +967,7 @@ function beginPickOnMap(){
   armMapPickHandlers();
   setStatus(state.currentDraftMarker ? 'Pick on Map is active. Tap the map once to move the spot.' : 'Pick on Map is active. Tap the map once to set the spot.', 7000);
   $('waterLookupStatus').textContent='Pick on Map is active. Tap the map once to set the fishing spot.';
-  try{
-    map.invalidateSize();
-    window.requestAnimationFrame(()=>map.invalidateSize());
-    window.setTimeout(()=>{ if(state.pickOnMapArmed) map.invalidateSize(); }, 220);
-  }catch(_e){}
+  try{ map.invalidateSize(); showMapPickOverlay(); }catch(_e){}
 }
 
 
@@ -1868,10 +1884,17 @@ $('predictBtn').addEventListener('click',()=>{ openSheet($('predictSheet')); clo
 $('closePredictSheetBtn').addEventListener('click',()=>closeSheet($('predictSheet')));
 $('predictNotLiveBtn').addEventListener('click',()=>setStatus('Prediction section is just the form shell for now.', 2600));
 setOptions($('predictSpecies'), MIDWEST_FISH_SPECIES, 'Choose one');
-['sortNewest','sortOldest','sortSpecies','sortAngler','sortWater','sortBait'].forEach(id=>{
-  $(id).addEventListener('change',()=>{
-    if(!$(id).checked){ $(id).checked=true; return; }
-    ['sortNewest','sortOldest','sortSpecies','sortAngler','sortWater','sortBait'].forEach(other=>{ if(other!==id) $(other).checked=false; });
+const reviewSortIds=['sortNewest','sortOldest','sortSpecies','sortAngler','sortWater','sortBait'];
+reviewSortIds.forEach(id=>{
+  const el=$(id);
+  if(!el) return;
+  el.addEventListener('change',()=>{
+    if(!el.checked){ el.checked=true; return; }
+    reviewSortIds.forEach(other=>{
+      if(other===id) return;
+      const otherEl=$(other);
+      if(otherEl) otherEl.checked=false;
+    });
     state.reviewSort=id.replace('sort','').toLowerCase();
     render();
   });
