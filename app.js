@@ -1,4 +1,4 @@
-const APP_VERSION='v10.23';
+const APP_VERSION='v10.24';
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
@@ -171,12 +171,35 @@ function populateColorOptions(){
   if(filterValue && COLOR_OPTIONS.includes(filterValue)) $('filterColor').value=filterValue;
 }
 
+function isValidCoordinatePair(lat,lng){
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  if(lat < -90 || lat > 90 || lng < -180 || lng > 180) return false;
+  if(Math.abs(lat) < 0.000001 && Math.abs(lng) < 0.000001) return false;
+  return true;
+}
+
+function shouldForceWesternHemisphere({lat,lng,stateName='',countyName='',waterName=''}={}){
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  const hasUSContext=Boolean(String(stateName||'').trim() || String(countyName||'').trim() || /(lake superior|lake michigan|lake huron|lake erie|lake ontario|mississippi|yellow dog|st\.? marys|menominee|fox river|wisconsin river)/i.test(String(waterName||'')));
+  if(!hasUSContext) return false;
+  return lat >= 20 && lat <= 60 && lng > 0 && lng <= 180;
+}
+
+function sanitizeCoordinatePair(latValue,lngValue, context={}){
+  let lat=latValue==='' || latValue==null ? null : Number(latValue);
+  let lng=lngValue==='' || lngValue==null ? null : Number(lngValue);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return {lat:null,lng:null};
+  if(shouldForceWesternHemisphere({lat,lng,...context})) lng=-Math.abs(lng);
+  if(!isValidCoordinatePair(lat,lng)) return {lat:null,lng:null};
+  return {lat:Number(lat.toFixed(6)), lng:Number(lng.toFixed(6))};
+}
+
 function hasMarker(entry){
-  return Number.isFinite(entry?.marker?.lat) && Number.isFinite(entry?.marker?.lng);
+  return isValidCoordinatePair(Number(entry?.marker?.lat), Number(entry?.marker?.lng));
 }
 
 function hasSharedMarker(entry){
-  return Number.isFinite(entry?.sharedMarker?.lat) && Number.isFinite(entry?.sharedMarker?.lng);
+  return isValidCoordinatePair(Number(entry?.sharedMarker?.lat), Number(entry?.sharedMarker?.lng));
 }
 
 
@@ -190,9 +213,11 @@ function entryBelongsToCurrentAngler(entry={}){
 }
 
 function getDrawableMarker(entry){
-  if(entryBelongsToCurrentAngler(entry) && hasMarker(entry)) return {point:entry.marker, exact:true};
-  if(hasSharedMarker(entry)) return {point:entry.sharedMarker, exact:false};
-  if(hasMarker(entry)) return {point:entry.marker, exact:true};
+  const exactMarker=sanitizeCoordinatePair(entry?.marker?.lat, entry?.marker?.lng, {stateName:entry.stateName, countyName:entry.countyName, waterName:entry.waterName});
+  const sharedMarker=sanitizeCoordinatePair(entry?.sharedMarker?.lat, entry?.sharedMarker?.lng, {stateName:entry.stateName, countyName:entry.countyName, waterName:entry.waterName});
+  if(entryBelongsToCurrentAngler(entry) && isValidCoordinatePair(exactMarker.lat, exactMarker.lng)) return {point:exactMarker, exact:true};
+  if(isValidCoordinatePair(sharedMarker.lat, sharedMarker.lng)) return {point:sharedMarker, exact:false};
+  if(isValidCoordinatePair(exactMarker.lat, exactMarker.lng)) return {point:exactMarker, exact:true};
   return null;
 }
 
@@ -434,6 +459,8 @@ function updateCloudUi(){
 function normalizeEntry(entry={}){
   const marker=entry.marker && typeof entry.marker==='object' ? entry.marker : {};
   const sharedMarker=entry.sharedMarker && typeof entry.sharedMarker==='object' ? entry.sharedMarker : {};
+  const cleanMarker=sanitizeCoordinatePair(marker.lat, marker.lng, {stateName:entry.stateName, countyName:entry.countyName, waterName:entry.waterName});
+  const cleanSharedMarker=sanitizeCoordinatePair(sharedMarker.lat, sharedMarker.lng, {stateName:entry.stateName, countyName:entry.countyName, waterName:entry.waterName});
   return {
     ...entry,
     id:String(entry.id || getSafeRandomId()),
@@ -462,14 +489,8 @@ function normalizeEntry(entry={}){
     countyName:entry.countyName || '',
     stateName:entry.stateName || '',
     markerAccuracy:entry.markerAccuracy==='' || entry.markerAccuracy==null ? null : Number(entry.markerAccuracy),
-    marker:{
-      lat:marker.lat==='' || marker.lat==null || !Number.isFinite(Number(marker.lat)) ? null : Number(marker.lat),
-      lng:marker.lng==='' || marker.lng==null || !Number.isFinite(Number(marker.lng)) ? null : Number(marker.lng)
-    },
-    sharedMarker:{
-      lat:sharedMarker.lat==='' || sharedMarker.lat==null || !Number.isFinite(Number(sharedMarker.lat)) ? null : Number(sharedMarker.lat),
-      lng:sharedMarker.lng==='' || sharedMarker.lng==null || !Number.isFinite(Number(sharedMarker.lng)) ? null : Number(sharedMarker.lng)
-    }
+    marker:cleanMarker,
+    sharedMarker:cleanSharedMarker
   };
 }
 
@@ -519,10 +540,12 @@ async function entryToCloudRow(entry){
   const sharedWaterName=getSharedWaterLabel(entry);
   const sharedWaterType=determineWaterType({waterName:entry.waterName, candidateType:entry.waterType, lat:entry?.marker?.lat, lng:entry?.marker?.lng});
   const sharedPoint=await buildSharedDisplayPoint(entry);
-  const exactLat=hasMarker(entry) ? Number(entry.marker.lat.toFixed(6)) : null;
-  const exactLng=hasMarker(entry) ? Number(entry.marker.lng.toFixed(6)) : null;
-  let sharedLat=sharedPoint ? Number(sharedPoint.lat.toFixed(6)) : null;
-  let sharedLng=sharedPoint ? Number(sharedPoint.lng.toFixed(6)) : null;
+  const cleanExactMarker=sanitizeCoordinatePair(entry?.marker?.lat, entry?.marker?.lng, {stateName:entry.stateName, countyName:entry.countyName, waterName:entry.waterName});
+  const exactLat=isValidCoordinatePair(cleanExactMarker.lat, cleanExactMarker.lng) ? cleanExactMarker.lat : null;
+  const exactLng=isValidCoordinatePair(cleanExactMarker.lat, cleanExactMarker.lng) ? cleanExactMarker.lng : null;
+  const cleanSharedPoint=sharedPoint ? sanitizeCoordinatePair(sharedPoint.lat, sharedPoint.lng, {stateName:entry.stateName, countyName:entry.countyName, waterName:entry.waterName}) : {lat:null,lng:null};
+  let sharedLat=isValidCoordinatePair(cleanSharedPoint.lat, cleanSharedPoint.lng) ? cleanSharedPoint.lat : null;
+  let sharedLng=isValidCoordinatePair(cleanSharedPoint.lat, cleanSharedPoint.lng) ? cleanSharedPoint.lng : null;
   let sharedWaypointName=shareLocationLevel==='Body of Water Name' ? (entry.waypointName || null) : null;
   let sharedLocationSource=sharedPoint?.method==='public-access' ? (shareLocationLevel==='Body of Water Name' ? 'shared-access-body-of-water' : 'shared-access-water-type') : (shareLocationLevel==='Body of Water Name' ? 'shared-display-body-of-water' : 'shared-display-water-type');
   let sharedAccuracy=null;
@@ -579,6 +602,8 @@ async function entryToCloudRow(entry){
 }
 
 function cloudRowToEntry(row){
+  const exactMarker=sanitizeCoordinatePair(row.exact_marker_lat, row.exact_marker_lng, {stateName:row.state_name, countyName:row.county_name, waterName:row.water_name});
+  const sharedMarker=sanitizeCoordinatePair(row.marker_lat, row.marker_lng, {stateName:row.state_name, countyName:row.county_name, waterName:row.water_name});
   return normalizeEntry({
     id:row.id,
     owner:row.owner_name || state.angler.name || DEFAULT_ANGLER_SETTINGS.name,
@@ -621,8 +646,8 @@ function cloudRowToEntry(row){
     countyName:row.county_name || '',
     stateName:row.state_name || '',
     markerAccuracy:row.marker_accuracy,
-    marker:{lat:row.exact_marker_lat==null ? null : Number(row.exact_marker_lat), lng:row.exact_marker_lng==null ? null : Number(row.exact_marker_lng)},
-    sharedMarker:{lat:row.marker_lat==null ? null : Number(row.marker_lat), lng:row.marker_lng==null ? null : Number(row.marker_lng)}
+    marker:exactMarker,
+    sharedMarker
   });
 }
 
@@ -1341,9 +1366,10 @@ function render(){
   const visible=getFilteredEntries();
   state.markerCluster.clearLayers();
   const drawablePoints=[];
+  let skippedInvalidMapPoints=0;
   visible.forEach(entry=>{
     const drawable=getDrawableMarker(entry);
-    if(!drawable) return;
+    if(!drawable){ skippedInvalidMapPoints+=1; return; }
     drawablePoints.push([drawable.point.lat, drawable.point.lng]);
     const marker=L.marker([drawable.point.lat,drawable.point.lng],{icon:createAnglerMarkerIcon(entry)});
     const sharedLevel=normalizeLocationShareLevel(entry.shareLocationLevel);
@@ -1388,7 +1414,7 @@ function render(){
     return String(b.date||'').localeCompare(String(a.date||'')) || String(b.createdAt||'').localeCompare(String(a.createdAt||''));
   });
   $('entryList').innerHTML='';
-  $('entryCount').textContent=`${visible.length} shown / ${state.entries.length} total`;
+  $('entryCount').textContent=`${visible.length} shown / ${state.entries.length} total${skippedInvalidMapPoints ? ` · ${skippedInvalidMapPoints} with invalid map points` : ''}`;
   if(!sortedVisible.length){
     $('entryList').innerHTML='<div class="entryRow empty">No logs match the current filters.</div>';
     return;
