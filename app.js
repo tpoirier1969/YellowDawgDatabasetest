@@ -1,4 +1,4 @@
-const APP_VERSION='v10.37.0';
+const APP_VERSION='v10.37.1';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -1331,7 +1331,7 @@ function updateBaitHelperContext(){
     setBaitHelper(subtype ? `Ice fishing setup: ${subtype}.` : 'Choose an ice setup and then set presentation style, depth, and speed.');
     return;
   }
-  setBaitHelper('Choose your fishing type first.');
+  setBaitHelper('');
 }
 
 function applyBaitTypeUI(){
@@ -1392,13 +1392,13 @@ function applyBaitTypeUI(){
     baitSubtype.required=true;
     baitName.disabled=true;
   } else {
-    $('subtypeWrap').classList.remove('hidden');
+    $('subtypeWrap').classList.add('hidden');
     $('sizeWrap').classList.add('hidden');
-    $('nameWrap').classList.remove('hidden');
+    $('nameWrap').classList.add('hidden');
     setOptions(baitSubtype, [], 'Choose one');
     setLabelText($('subtypeWrap'), 'Subtype');
-    setLabelText($('nameLabel'), 'Name');
-    baitName.placeholder='Choose fishing type first...';
+    setLabelText($('nameLabel'), 'Pattern / Lure Name');
+    baitName.placeholder='';
     baitName.disabled=true;
   }
   updateColorFieldVisibility();
@@ -2381,6 +2381,16 @@ if($('reviewResetFiltersBtn')) $('reviewResetFiltersBtn').addEventListener('clic
 ['filterDateFrom','filterDateTo','filterSpecies','filterColor','filterBaitType','filterWaterType','filterTimeOfDay','filterSky','filterRetrieveSpeed'].forEach(id=>$(id).addEventListener('change',applyMapAndReviewFiltersFromInputs));
 ['reviewFilterSpecies','reviewFilterBaitType','reviewFilterWaterType','reviewFilterWindDirection','reviewFilterSky'].forEach(id=>$(id)?.addEventListener('change',applyMapAndReviewFiltersFromInputs));
 ['reviewFilterWaterTemp','reviewFilterSizeInches','reviewFilterAirTemp'].forEach(id=>$(id)?.addEventListener('input',applyMapAndReviewFiltersFromInputs));
+$('baitType').addEventListener('change',()=>{ applyBaitTypeUI(); updateFieldFillStates(); });
+$('baitSubtype').addEventListener('change',()=>{ refreshFlySizeOptions(); applySubtypeColorDefaults(); updateBaitHelperContext(); updateSheetSelectTriggers(); updateFieldFillStates(); });
+$('presentationStyle').addEventListener('change',updateFieldFillStates);
+$('depthZone').addEventListener('change',updateFieldFillStates);
+$('retrieveSpeed').addEventListener('change',updateFieldFillStates);
+$('species').addEventListener('change',updateFieldFillStates);
+$('presentationDepthFt').addEventListener('input',updateFieldFillStates);
+$('waterTemp').addEventListener('input',updateFieldFillStates);
+$('airTemp').addEventListener('input',updateFieldFillStates);
+$('waterDepthFt').addEventListener('input',()=>{ syncMirroredConditionFields(); updateFieldFillStates(); });
 $('baitName').addEventListener('input',()=>{
   if($('baitType').value==='Fly'){
     const query=$('baitName').value.trim();

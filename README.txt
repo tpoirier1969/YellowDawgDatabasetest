@@ -1,4 +1,4 @@
-Fishing Logbook v10.37.0
+Fishing Logbook v10.37.1
 
 What changed
 - rebuilt the Add Log form flow so Trip, Conditions, Type of Fishing, and Results read more cleanly
@@ -21,3 +21,7 @@ Notes
 - review numeric filters accept exact values like 55, minimums like 55+, and maximums like 55-
 - Map Only now works alongside Read Me and Search instead of hiding all the useful controls
 - local save behavior is unchanged
+
+- hotfix: bait type change now repopulates subtype and presentation fields
+- hotfix: Steelhead restored as a separate species choice
+- hotfix: generic Name / Choose fishing type first state removed until a relevant type is selected
