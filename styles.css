@@ -230,3 +230,52 @@ input[inputmode='decimal']::-webkit-outer-spin-button,input[inputmode='decimal']
   .reviewFilterActions{justify-content:stretch;}
   .reviewFilterActions .secondaryBtn{width:100%;}
 }
+
+
+/* v10.37.0 options, map search, unified filters, and filled-state cues */
+html{ -webkit-text-size-adjust:100%; }
+label{min-width:0;}
+input,select,textarea,.sheet-select-trigger{max-width:100%;}
+#mapUiToggleBar{display:flex !important;gap:8px;align-items:center;flex-wrap:wrap;right:12px;bottom:calc(var(--safe-bottom) + 188px);}
+#mapUiToggleBar .dockToggleBtn{box-shadow:var(--shadow);}
+#mapSearchPanel{position:fixed;z-index:1002;right:12px;bottom:calc(var(--safe-bottom) + 236px);width:min(calc(100vw - 24px), 360px);padding:12px;border-radius:16px;}
+.map-search-row{display:flex;gap:8px;align-items:center;}
+#mapSearchInput{min-height:44px;font-size:16px;}
+#mapSearchGoBtn{min-height:44px;flex:0 0 auto;}
+.map-search-results{display:grid;gap:8px;margin-top:10px;max-height:220px;overflow:auto;}
+.map-search-result{width:100%;text-align:left;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);border-radius:12px;padding:10px 12px;font:inherit;}
+.map-search-result span{display:block;color:var(--muted);font-size:12px;margin-top:4px;line-height:1.3;}
+.readme-copy h3{margin:16px 0 8px;font-size:16px;}
+.readme-copy p,.readme-copy li{line-height:1.45;color:var(--text);}
+.readme-copy ul{padding-left:18px;margin:8px 0 0;}
+#reviewSheet .reviewFilterGrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px;}
+#reviewSheet .reviewFilterGrid label{font-size:12px;}
+#reviewSheet .reviewFilterGrid input,#reviewSheet .reviewFilterGrid select,#reviewSheet .reviewFilterGrid .sheet-select-trigger{min-height:44px;font-size:14px;}
+.trip-date-row{grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr) !important;}
+.trip-date-row input{min-width:0;overflow:hidden;}
+.inline-helper{margin:0;border-radius:14px;}
+.label-two-line{display:inline-block;line-height:1.05;}
+.technique-grid label:first-child{align-self:stretch;}
+#logForm .track-fill{padding:10px;border-radius:14px;border:1px solid rgba(15,90,52,.28);transition:background .16s ease,color .16s ease,border-color .16s ease;}
+#logForm .track-fill.field-pending{background:#d8eef9;color:#0f5a34;border-color:rgba(15,90,52,.38);}
+#logForm .track-fill.field-complete{background:#0f5a34;color:#d8eef9;border-color:rgba(216,238,249,.36);}
+#logForm .track-fill input,#logForm .track-fill select,#logForm .track-fill textarea,#logForm .track-fill .sheet-select-trigger{background:transparent;border-color:currentColor;color:inherit;}
+#logForm .track-fill input::placeholder,#logForm .track-fill textarea::placeholder{color:inherit;opacity:.72;}
+#logForm .track-fill .sheet-select-trigger.is-placeholder{color:inherit;opacity:.8;}
+#logForm .track-fill .sheet-select-trigger::after{color:currentColor;}
+#logForm input,#logForm select,#logForm textarea,#logForm .sheet-select-trigger{font-size:16px;}
+#logSheet{width:100%;left:0;right:0;overflow-x:hidden;}
+#logForm{overflow-x:hidden;}
+#currentSpeedWrap.hidden,#surfaceConditionWrap.hidden{display:none !important;}
+@media (max-width:1100px){
+  #reviewSheet .reviewFilterGrid{grid-template-columns:repeat(4,minmax(0,1fr));}
+}
+@media (max-width:720px){
+  #mapUiToggleBar{left:12px;right:12px;bottom:calc(var(--safe-bottom) + 188px);justify-content:flex-end;}
+  #mapSearchPanel{left:12px;right:12px;width:auto;bottom:calc(var(--safe-bottom) + 236px);}
+  #reviewSheet .reviewFilterGrid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .trip-date-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) !important;}
+}
+@media (max-width:520px){
+  #reviewSheet .reviewFilterGrid{grid-template-columns:1fr;}
+}

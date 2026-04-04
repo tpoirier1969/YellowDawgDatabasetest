@@ -1,25 +1,23 @@
-Fishing Logbook v10.36.0
+Fishing Logbook v10.37.0
 
 What changed
-- unified the main action flow across phone, tablet, and desktop so the main action buttons sit at the bottom in a 2-column grid everywhere
-- Map Only and Menu controls now work as the same map/menu toggle flow across screen sizes
-- tightened the header so the build note no longer stomps on the app title
-- Add Log now refreshes Time of Day when you tap Add Log
-- Use My Location and Pick on Map stay side by side
-- Date and Time of Day stay side by side
-- removed Waypoint and Sharing Preview from the visible Add Log form for now
-- moved Water Type and Water Conditions onto one row
-- added Wind
-- added Water Depth (ft) as a separate field from Presented Depth
-- Presented Depth now clearly means where the bait or fly was worked in the water column
-- Hatches only shows for Fly entries
-- lure type helper text now gives plain-English example lures so categories like Swimbait are less cryptic
-- validation no longer falsely requires lure-only fields for every bait type
+- rebuilt the Add Log form flow so Trip, Conditions, Type of Fishing, and Results read more cleanly
+- renamed Angler Setup to Options in the main dock and added Map Options inside the sheet
+- added map style choices, including Satellite
+- added a Read Me sheet near Map Only with project overview and clearer sharing examples
+- added a small expandable map search tool near the map controls
+- split Rainbow Trout and Steelhead into separate species entries
+- added Bottom Type and kept Wind Direction in Conditions
+- added better Review filters and wired them to the actual list/map state
+- made core Add Log fields visually flip from pending to complete
+- kept more Add Log fields optional instead of treating the form like an audit
+- reduced mobile input auto-zoom by using mobile-safe control sizing
+- fixed Water Clarity / water-type condition handling so one live field is used instead of broken clones
 
 Important Supabase note
-- rerun supabase-setup.sql in Supabase for this build if you want cloud sync to keep the new Wind and Water Depth fields
+- rerun supabase-setup.sql in Supabase if you want cloud sync to keep newer fields like wind direction, bottom type, and exact presentation depth
 
 Notes
-- presentation depth still uses the existing depth-zone field under the hood; the UI label is what changed
-- map-only mode is a view toggle and does not change data
+- review numeric filters accept exact values like 55, minimums like 55+, and maximums like 55-
+- Map Only now works alongside Read Me and Search instead of hiding all the useful controls
 - local save behavior is unchanged
