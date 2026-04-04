@@ -1,4 +1,4 @@
-Fishing Logbook v10.37.1
+Fishing Logbook v10.38.0
 
 What changed
 - rebuilt the Add Log form flow so Trip, Conditions, Type of Fishing, and Results read more cleanly

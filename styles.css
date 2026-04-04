@@ -279,3 +279,61 @@ input,select,textarea,.sheet-select-trigger{max-width:100%;}
 @media (max-width:520px){
   #reviewSheet .reviewFilterGrid{grid-template-columns:1fr;}
 }
+
+
+/* v10.38.0 anchored pickers and two-color Add Log state */
+:root{
+  --track-pending-bg:#d7ebf7;
+  --track-pending-fg:#182227;
+  --track-complete-bg:#171d21;
+  --track-complete-fg:#d7ebf7;
+  --picker-bg:rgba(24,29,33,.97);
+  --picker-line:rgba(215,235,247,.24);
+}
+#logForm label.track-fill,
+#logForm .track-fill{
+  padding:10px;
+  border-radius:14px;
+  border:1px solid rgba(24,34,39,.18);
+  transition:background .16s ease,color .16s ease,border-color .16s ease,box-shadow .16s ease;
+}
+#logForm .track-fill.field-pending{
+  background:var(--track-pending-bg) !important;
+  color:var(--track-pending-fg) !important;
+  border-color:rgba(24,34,39,.22) !important;
+}
+#logForm .track-fill.field-complete{
+  background:var(--track-complete-bg) !important;
+  color:var(--track-complete-fg) !important;
+  border-color:rgba(215,235,247,.26) !important;
+}
+#logForm .track-fill input,
+#logForm .track-fill select,
+#logForm .track-fill textarea,
+#logForm .track-fill .sheet-select-trigger{
+  background:transparent !important;
+  color:inherit !important;
+  border-color:currentColor !important;
+  box-shadow:none !important;
+}
+#logForm .track-fill .helper-box,
+#logForm .track-fill .inline-helper{background:transparent !important;color:inherit !important;border-color:currentColor !important;}
+#logForm .track-fill input::placeholder,
+#logForm .track-fill textarea::placeholder,
+#logForm .track-fill .sheet-select-trigger.is-placeholder{color:inherit !important;opacity:.78;}
+#logForm .track-fill .sheet-select-trigger::after{color:currentColor !important;}
+#logForm .track-fill.field-missing{box-shadow:0 0 0 3px rgba(220,38,38,.28);}
+.sheet-select-trigger{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.16);}
+.picker-sheet{position:fixed !important;z-index:1450;left:var(--picker-left,12px) !important;top:var(--picker-top,96px) !important;right:auto !important;bottom:auto !important;width:var(--picker-width,min(calc(100vw - 24px),340px));max-height:min(56vh,420px);transform:none !important;border-radius:18px !important;background:var(--picker-bg) !important;border:1px solid var(--picker-line) !important;box-shadow:0 18px 44px rgba(0,0,0,.45) !important;padding:10px 12px 12px !important;overflow:hidden !important;display:none;}
+.picker-sheet.visible{display:block;}
+.picker-sheet .sheet-handle{display:none;}
+.picker-sheet .sheet-head{margin-bottom:8px;align-items:center;}
+.picker-sheet .sheet-head h2{font-size:16px;}
+.picker-options{position:relative;display:block;max-height:300px;overflow:auto;padding:56px 0;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;}
+.picker-options::before,.picker-options::after{content:'';position:sticky;left:0;right:0;display:block;height:0;pointer-events:none;}
+.picker-options::before{top:112px;border-top:1px solid rgba(215,235,247,.22);}
+.picker-options::after{bottom:112px;border-bottom:1px solid rgba(215,235,247,.22);}
+.picker-option{width:100%;min-height:44px;padding:10px 12px;border:0;border-radius:12px;background:transparent;color:#e8f4fb;text-align:left;font:inherit;scroll-snap-align:center;}
+.picker-option:hover,.picker-option:focus-visible{background:rgba(215,235,247,.08);outline:none;}
+.picker-option.selected{background:rgba(215,235,247,.14);color:#fff;}
+@media (max-width:680px){.picker-sheet{width:min(calc(100vw - 20px),360px);max-height:min(52vh,380px);}}
