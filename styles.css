@@ -385,3 +385,58 @@ body.action-dock-hidden #mapUiToggleBar{display:flex !important;}
 }
 
 body:not(.action-dock-hidden) #mapUiToggleBar{display:none !important;}
+
+
+body.picker-open{overflow:hidden;}
+.picker-sheet{position:fixed !important;z-index:1450;left:var(--picker-left,12px) !important;top:var(--picker-top,96px) !important;right:auto !important;bottom:auto !important;width:var(--picker-width,min(calc(100vw - 24px),340px));max-height:min(62vh,440px);transform:none !important;border-radius:22px !important;background:rgba(12,16,20,.96) !important;border:1px solid rgba(214,235,246,.18) !important;box-shadow:0 22px 60px rgba(0,0,0,.5) !important;padding:10px 12px 14px !important;overflow:hidden !important;display:none;}
+.picker-sheet.visible{display:block;}
+.picker-sheet::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(to bottom, rgba(255,255,255,.03), rgba(255,255,255,.01));pointer-events:none;}
+.picker-sheet .sheet-head{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;}
+.picker-sheet .sheet-head h2{font-size:16px;line-height:1.2;margin:0;}
+.picker-sheet .sheet-head .sheetClose{min-height:36px;padding:6px 12px;border-radius:12px;}
+.picker-wheel-wrap{position:relative;z-index:1;}
+.picker-options{position:relative;max-height:292px;overflow:auto;padding:122px 0;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;mask-image:linear-gradient(to bottom, transparent 0%, black 16%, black 84%, transparent 100%);}
+.picker-selection-band{position:absolute;left:0;right:0;top:50%;height:52px;transform:translateY(-50%);border-top:1px solid rgba(214,235,246,.24);border-bottom:1px solid rgba(214,235,246,.24);background:linear-gradient(to bottom, rgba(214,235,246,.08), rgba(214,235,246,.03));border-radius:14px;pointer-events:none;box-shadow:inset 0 0 0 1px rgba(214,235,246,.08);}
+.picker-option{display:block;width:100%;min-height:52px;padding:14px 16px;border:0;border-radius:12px;background:transparent;color:#c7d8e5;text-align:center;font:inherit;font-weight:600;letter-spacing:.01em;scroll-snap-align:center;transform:scale(.93);opacity:.62;transition:transform .14s ease, opacity .14s ease, color .14s ease;}
+.picker-option.selected{color:#ffffff;opacity:1;transform:scale(1.02);text-shadow:0 1px 10px rgba(255,255,255,.08);}
+.picker-option:hover,.picker-option:focus-visible{background:rgba(214,235,246,.06);outline:none;}
+@media (max-width:680px){.picker-sheet{width:min(calc(100vw - 16px),380px);max-height:min(62vh,430px);}.picker-options{max-height:280px;padding:114px 0;}}
+
+
+/* v10.39.2 home dock centering hotfix */
+@media (max-width: 720px){
+  #floatingActions{
+    left:50% !important;
+    right:auto !important;
+    transform:translateX(-50%) !important;
+    width:min(calc(100vw - 32px), 340px) !important;
+    max-width:340px;
+    gap:8px !important;
+    justify-content:center;
+    align-content:start;
+    margin:0 auto;
+  }
+  #floatingActions .pill{
+    min-height:42px;
+    padding:0 8px;
+    font-size:13px;
+  }
+  #statusBadge{
+    left:50% !important;
+    right:auto !important;
+    transform:translateX(-50%) !important;
+    width:min(calc(100vw - 32px), 340px);
+    max-width:340px;
+  }
+  #mapUiToggleBar{
+    left:50%;
+    right:auto !important;
+    transform:translateX(-50%);
+    width:min(calc(100vw - 32px), 340px);
+    justify-content:center;
+    bottom:calc(var(--safe-bottom) + 192px);
+  }
+  body.action-dock-hidden #mapUiToggleBar{
+    bottom:var(--safe-bottom);
+  }
+}

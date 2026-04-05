@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.0';
+const APP_VERSION='v10.39.2';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -1837,7 +1837,7 @@ function parseOptionalNumber(value){
 
 let activeSheetSelect=null;
 let pickerScrollTimer=null;
-const PICKER_OPTION_HEIGHT=48;
+const PICKER_OPTION_HEIGHT=52;
 function ensureSheetSelectButton(select){
   if(!select || select.dataset.sheetSelectReady==='true') return;
   const trigger=document.createElement('button');
@@ -1912,6 +1912,7 @@ function openPickerPopover(){
   if(!picker) return;
   picker.classList.add('visible');
   picker.setAttribute('aria-hidden','false');
+  document.body.classList.add('picker-open');
 }
 
 function closePickerPopover(){
@@ -1919,6 +1920,7 @@ function closePickerPopover(){
   if(!picker) return;
   picker.classList.remove('visible');
   picker.setAttribute('aria-hidden','true');
+  document.body.classList.remove('picker-open');
   activeSheetSelect=null;
   const optionsWrap=$('pickerOptions');
   if(optionsWrap) optionsWrap.onscroll=null;
@@ -1931,11 +1933,12 @@ function positionPickerPopover(trigger){
   const rect=trigger.getBoundingClientRect();
   const vw=window.innerWidth;
   const vh=window.innerHeight;
-  const width=Math.min(Math.max(rect.width, 280), Math.min(vw - 20, 360));
-  let left=rect.left + (rect.width/2) - (width/2);
-  left=Math.max(10, Math.min(left, vw - width - 10));
-  let top=rect.top + (rect.height/2) - 170;
-  top=Math.max(10, Math.min(top, vh - 390));
+  const isPhone=vw <= 680;
+  const width=isPhone ? Math.min(vw - 18, 370) : Math.min(Math.max(rect.width, 300), Math.min(vw - 20, 380));
+  let left=isPhone ? Math.max(9, (vw - width) / 2) : rect.left + (rect.width/2) - (width/2);
+  left=Math.max(9, Math.min(left, vw - width - 9));
+  const idealTop=isPhone ? Math.min(vh * 0.18, 120) : rect.top + (rect.height/2) - 176;
+  let top=Math.max(8, Math.min(idealTop, vh - 420));
   picker.style.setProperty('--picker-left', `${left}px`);
   picker.style.setProperty('--picker-top', `${top}px`);
   picker.style.setProperty('--picker-width', `${width}px`);
@@ -1979,16 +1982,21 @@ function setPickerSelection(select, value, {dispatch=true}={}){
   updateFieldFillStates();
 }
 
-function centerPickerOnValue(value){
+function centerPickerOnValue(value,{smooth=false}={}){
   const optionsWrap=$('pickerOptions');
   if(!optionsWrap) return;
   const target=optionsWrap.querySelector(`.picker-option[data-value="${CSS.escape(value)}"]`) || optionsWrap.querySelector('.picker-option');
   if(!target) return;
   const top=target.offsetTop - (optionsWrap.clientHeight/2) + (target.offsetHeight/2);
-  optionsWrap.scrollTop=Math.max(0, top);
+  const nextTop=Math.max(0, top);
+  if(typeof optionsWrap.scrollTo==='function'){
+    optionsWrap.scrollTo({top:nextTop, behavior:smooth ? 'smooth' : 'auto'});
+  }else{
+    optionsWrap.scrollTop=nextTop;
+  }
 }
 
-function syncPickerSelectionFromScroll(){
+function syncPickerSelectionFromScroll({snap=true}={}){
   const optionsWrap=$('pickerOptions');
   if(!optionsWrap || !activeSheetSelect) return;
   const center=optionsWrap.scrollTop + (optionsWrap.clientHeight / 2);
@@ -1999,7 +2007,11 @@ function syncPickerSelectionFromScroll(){
     const distance=Math.abs(optionCenter - center);
     if(distance < bestDistance){ bestDistance=distance; closest=option; }
   });
-  if(closest) setPickerSelection(activeSheetSelect, closest.dataset.value);
+  if(!closest) return;
+  setPickerSelection(activeSheetSelect, closest.dataset.value);
+  if(snap){
+    centerPickerOnValue(closest.dataset.value,{smooth:true});
+  }
 }
 
 function openSheetSelect(select, triggerEl=null){
@@ -2009,8 +2021,8 @@ function openSheetSelect(select, triggerEl=null){
   $('pickerTitle').textContent=getSheetSelectLabel(select);
   const optionsWrap=$('pickerOptions');
   optionsWrap.innerHTML='';
-  [...select.options].forEach((option, index)=>{
-    if(index===0 && !option.value) return;
+  const values=[...select.options].filter((option, index)=>!(index===0 && !option.value));
+  values.forEach(option=>{
     const btn=document.createElement('button');
     btn.type='button';
     btn.className='picker-option';
@@ -2018,19 +2030,19 @@ function openSheetSelect(select, triggerEl=null){
     btn.dataset.value=option.value;
     btn.addEventListener('click',()=>{
       setPickerSelection(select, option.value);
-      centerPickerOnValue(option.value);
+      centerPickerOnValue(option.value,{smooth:true});
     });
     optionsWrap.appendChild(btn);
   });
   optionsWrap.onscroll=()=>{
     clearTimeout(pickerScrollTimer);
-    pickerScrollTimer=setTimeout(syncPickerSelectionFromScroll, 80);
+    pickerScrollTimer=setTimeout(()=>syncPickerSelectionFromScroll({snap:true}), 90);
   };
   positionPickerPopover(trigger);
   openPickerPopover();
   requestAnimationFrame(()=>{
     centerPickerOnValue(select.value || (optionsWrap.querySelector('.picker-option')?.dataset.value || ''));
-    syncPickerSelectionFromScroll();
+    requestAnimationFrame(()=>syncPickerSelectionFromScroll({snap:false}));
   });
 }
 
