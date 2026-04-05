@@ -523,3 +523,49 @@ body.picker-open{overflow:hidden;}
 .picker-sheet .sheetClose{
   min-width:72px;
 }
+
+
+/* v10.39.6 dock hitbox and centering corrections */
+#mapUiToggleBar{
+  width:auto !important;
+  pointer-events:none;
+}
+#mapUiToggleBar .dockToggleBtn{
+  pointer-events:auto;
+}
+#floatingActions{
+  left:50% !important;
+  right:auto !important;
+  transform:translateX(-50%) !important;
+  width:min(calc(100vw - 24px), 520px) !important;
+  max-width:520px !important;
+  margin:0 !important;
+}
+body.action-dock-hidden #mapUiToggleBar{
+  left:auto !important;
+  right:12px !important;
+  transform:none !important;
+  justify-content:flex-end !important;
+}
+@media (max-width:720px){
+  #floatingActions{
+    left:12px !important;
+    right:12px !important;
+    transform:none !important;
+    width:auto !important;
+    max-width:none !important;
+  }
+  #mapUiToggleBar{
+    left:auto !important;
+    right:12px !important;
+    transform:none !important;
+    width:auto !important;
+    justify-content:flex-end !important;
+  }
+  body.action-dock-hidden #mapUiToggleBar{
+    left:auto !important;
+    right:12px !important;
+    width:auto !important;
+    transform:none !important;
+  }
+}

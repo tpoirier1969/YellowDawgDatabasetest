@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.5';
+const APP_VERSION='v10.39.6';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -479,7 +479,7 @@ function updateCloudUi(){
   const cloudSummary=$('cloudSummary');
   let badgeText='Local only';
   let buttonText='Cloud Sync';
-  let summary='Local-only mode. Add Supabase details in supabase-config.js to share logs across devices. Legacy config.js is also accepted. Angler settings control whether your name is shown and whether locations are shared by water type or body of water name.';
+  let summary='Local-only mode. Add Supabase details in supabase-config.js to share logs across devices. Angler settings control whether your name is shown and whether locations are shared by water type or body of water name.';
 
   if(state.cloud.syncing){
     badgeText='Cloud syncing…';
@@ -2409,22 +2409,22 @@ if($('mapSearchGoBtn')) $('mapSearchGoBtn').addEventListener('click',searchMapLo
 if($('mapSearchInput')) $('mapSearchInput').addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchMapLocations(); }});
 if($('readMeBtn')) $('readMeBtn').addEventListener('click',()=>{ closeAllSheets(); openSheet($('readMeSheet')); });
 if($('closeReadMeSheetBtn')) $('closeReadMeSheetBtn').addEventListener('click',()=>closeSheet($('readMeSheet')));
-$('reviewBtn').addEventListener('click',()=>{
+if($('reviewBtn')) $('reviewBtn').addEventListener('click',()=>{
   cancelAddMode();
   closeAllSheets();
   syncStateToReviewFilters();
   openSheet($('reviewSheet'));
 });
-$('filterBtn').addEventListener('click',()=>{
+if($('filterBtn')) $('filterBtn').addEventListener('click',()=>{
   cancelAddMode();
   closeAllSheets();
   openSheet($('filterSheet'));
 });
-$('cloudBtn').addEventListener('click', async ()=>{
+if($('cloudBtn')) $('cloudBtn').addEventListener('click', async ()=>{
   const diag=getCloudConfigDiagnostics();
   if(!diag.configured) {
     const message=diag.missing.length
-      ? 'Cloud setup is incomplete. Missing: ' + diag.missing.join(', ') + '. Check supabase-config.js (or legacy config.js) and make sure the page can load the Supabase JS library.'
+      ? 'Cloud setup is incomplete. Missing: ' + diag.missing.join(', ') + '. Check supabase-config.js and make sure the page can load the Supabase JS library.'
       : 'Cloud setup is incomplete.';
     setStatus(message, 5200);
     alert(message);
@@ -2439,7 +2439,7 @@ $('closeLogSheetBtn').addEventListener('click',()=>{
 $('closeAnglerSheetBtn').addEventListener('click',()=>closeSheet($('anglerSheet')));
 
 if(window.FishingPredictionReadme?.apply) window.FishingPredictionReadme.apply();
-$('predictBtn').addEventListener('click',()=>{
+if($('predictBtn')) $('predictBtn').addEventListener('click',()=>{
   cancelAddMode();
   closeAllSheets();
   if(window.FishingPredictionReadme?.apply) window.FishingPredictionReadme.apply();
