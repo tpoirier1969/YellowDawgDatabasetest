@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Fishing Logbook v10.39.4</title>
+<title>Fishing Logbook v10.39.5</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -20,7 +20,7 @@
 </head>
 <body>
 <div id="map"></div>
-<div id="topBadge" class="glass">Fishing Logbook v10.39.4</div>
+<div id="topBadge" class="glass">Fishing Logbook v10.39.5</div>
 <div id="buildNotice" class="noticeBanner">This app is still in development. Issues may arise as features are added but they will be fixed shortly, provided I'm not out casting a fly.</div>
 <div id="statusBadge" class="glass hidden">Ready.</div>
 <div id="cloudBadge" class="glass hidden"></div>
@@ -356,7 +356,7 @@
   <div class="sheet-handle"></div>
   <div class="sheet-head">
     <div><h2 id="pickerTitle">Choose one</h2></div>
-    <button id="closePickerBtn" class="sheetClose" type="button">Done</button>
+    <button id="closePickerBtn" class="sheetClose" type="button">Close</button>
   </div>
   <div class="picker-wheel-wrap">
     <div class="picker-selection-band" aria-hidden="true"></div>
@@ -367,7 +367,7 @@
 <div id="reviewSheet" class="sheet" aria-hidden="true">
   <div class="sheet-handle"></div>
   <div class="sheet-head"><div><h2>Review Logs</h2><p id="reviewSubcopy">Saved logs stay tucked away until you want them.</p></div><button id="closeReviewSheetBtn" class="sheetClose" type="button">Close</button></div>
-  <div id="cloudSummary" class="helper-box">Local-only mode. Add Supabase details in supabase-config.js to share logs across devices.</div>
+  <div id="cloudSummary" class="helper-box">Local-only mode. Add Supabase details in supabase-config.js to share logs across devices. Legacy config.js is also accepted.</div>
   <div class="reviewFilterBar">
     <div class="reviewFilterGrid">
       <label>Fishing Type
@@ -408,7 +408,7 @@
 <div id="predictSheet" class="sheet" aria-hidden="true">
   <div class="sheet-handle"></div>
   <div class="sheet-head"><div><h2>Prediction Input</h2><p>Capture future prediction variables now. No recommendation engine yet.</p></div><button id="closePredictSheetBtn" class="sheetClose" type="button">Close</button></div>
-  <div class="helper-box">Dormant for now. This just defines the future prediction inputs.</div>
+  <div id="predictReadmeCopy" class="helper-box readme-copy">Prediction details are loading…</div>
   <form id="predictForm" autocomplete="off" novalidate>
     <div class="section">
       <div class="section-title">Trip Context</div>
@@ -445,9 +445,32 @@
 <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="fly-reference.js"></script>
-<script src="supabase-config.js"></script>
+
+<script>
+window.__FISHING_SUPABASE_CONFIG_LOADER__=(function(){
+  if(window.FISHING_SUPABASE_CONFIG) return Promise.resolve('inline');
+  const candidates=['supabase-config.js','config.js'];
+  return new Promise(resolve=>{
+    let resolved=false;
+    const done=value=>{ if(resolved) return; resolved=true; resolve(value); };
+    const tryLoad=index=>{
+      if(index>=candidates.length){ done(null); return; }
+      const src=candidates[index];
+      const script=document.createElement('script');
+      script.src=src;
+      script.async=false;
+      script.onload=()=>done(src);
+      script.onerror=()=>{ script.remove(); tryLoad(index+1); };
+      document.head.appendChild(script);
+    };
+    tryLoad(0);
+  });
+})();
+</script>
 <script src="fishing-vocab.js"></script>
 <script src="sheet-controller.js"></script>
+<script src="map-pick-controller.js"></script>
+<script src="prediction-readme.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

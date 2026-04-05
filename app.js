@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.4';
+const APP_VERSION='v10.39.5';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -436,12 +436,18 @@ function setWaterSuggestions(candidates=[]){
 }
 
 function getFishingSupabaseConfig(){
-  const cfg=(window.FISHING_SUPABASE_CONFIG && typeof window.FISHING_SUPABASE_CONFIG==='object') ? window.FISHING_SUPABASE_CONFIG : {};
+  const cfgCandidates=[
+    window.FISHING_SUPABASE_CONFIG,
+    window.FISHING_LOGBOOK_SUPABASE_CONFIG,
+    window.SUPABASE_CONFIG,
+    window.supabaseConfig
+  ].filter(candidate=>candidate && typeof candidate==='object');
+  const cfg=cfgCandidates[0] || {};
   return {
-    url:String(cfg.url || '').trim(),
-    anonKey:String(cfg.anonKey || cfg.publishableKey || '').trim(),
-    table:String(cfg.table || DEFAULT_FISHING_SUPABASE_CONFIG.table).trim() || DEFAULT_FISHING_SUPABASE_CONFIG.table,
-    appId:String(cfg.appId || DEFAULT_FISHING_SUPABASE_CONFIG.appId).trim() || DEFAULT_FISHING_SUPABASE_CONFIG.appId,
+    url:String(cfg.url || cfg.supabaseUrl || '').trim(),
+    anonKey:String(cfg.anonKey || cfg.publishableKey || cfg.supabaseAnonKey || cfg.key || '').trim(),
+    table:String(cfg.table || cfg.tableName || DEFAULT_FISHING_SUPABASE_CONFIG.table).trim() || DEFAULT_FISHING_SUPABASE_CONFIG.table,
+    appId:String(cfg.appId || cfg.applicationId || DEFAULT_FISHING_SUPABASE_CONFIG.appId).trim() || DEFAULT_FISHING_SUPABASE_CONFIG.appId,
     autoSyncOnLoad:cfg.autoSyncOnLoad!==false,
     autoSyncOnSave:cfg.autoSyncOnSave!==false
   };
@@ -473,7 +479,7 @@ function updateCloudUi(){
   const cloudSummary=$('cloudSummary');
   let badgeText='Local only';
   let buttonText='Cloud Sync';
-  let summary='Local-only mode. Add Supabase details in supabase-config.js to share logs across devices. Angler settings control whether your name is shown and whether locations are shared by water type or body of water name.';
+  let summary='Local-only mode. Add Supabase details in supabase-config.js to share logs across devices. Legacy config.js is also accepted. Angler settings control whether your name is shown and whether locations are shared by water type or body of water name.';
 
   if(state.cloud.syncing){
     badgeText='Cloud syncing…';
@@ -752,7 +758,11 @@ async function syncCloud({quiet=false}={}){
     const ok=await initCloud({syncOnLoad:false});
     if(!ok){
       const diag=getCloudConfigDiagnostics();
-      if(!quiet) alert('Cloud sync is not ready. Missing: ' + (diag.missing.length ? diag.missing.join(', ') : 'unknown item') + '.');
+      if(!quiet){
+        const message='Cloud sync is not ready. Missing: ' + (diag.missing.length ? diag.missing.join(', ') : 'unknown item') + '.';
+        setStatus(message, 5200);
+        alert(message);
+      }
       return false;
     }
   }
@@ -902,31 +912,13 @@ function syncAddLogButton(){
 
 
 
-function setMapPickVisuals(isActive){
-  const mapEl=document.getElementById('map');
-  if(!mapEl) return;
-  mapEl.style.cursor=isActive ? 'crosshair' : '';
-  mapEl.classList.toggle('map-pick-armed', !!isActive);
-}
 
-function pointFromClientEvent(event){
-  const touch = event.changedTouches && event.changedTouches[0] ? event.changedTouches[0] : null;
-  const clientX = touch ? touch.clientX : event.clientX;
-  const clientY = touch ? touch.clientY : event.clientY;
-  if(!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
-  const rect=map.getContainer().getBoundingClientRect();
-  const point=L.point(clientX-rect.left, clientY-rect.top);
-  return map.containerPointToLatLng(point);
+function setMapPickVisuals(isActive){
+  return window.MapPickController?.setVisuals?.(isActive);
 }
 
 function disarmMapPick(){
-  state.pickOnMapArmed=false;
-  if(state._mapPickFallbackTimer){
-    clearTimeout(state._mapPickFallbackTimer);
-    state._mapPickFallbackTimer=null;
-  }
-  detachMapPickHandlers();
-  setMapPickVisuals(false);
+  return window.MapPickController?.disarm?.();
 }
 
 function cancelAddMode(message=''){
@@ -958,105 +950,15 @@ function beginAddLog(){
 }
 
 async function finishMapPick(lat,lng){
-  if(!state.pickOnMapArmed || !state.addMode) return;
-  if(!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))){
-    setStatus('Map pick failed. Tap the map again.', 3200);
-    return;
-  }
-  disarmMapPick();
-  setDraftMarker(Number(lat),Number(lng),{source:'map',accuracy:null,recenter:false});
-  closeAllSheets();
-  openSheet($('logSheet'));
-  requestAnimationFrame(()=>{ map.invalidateSize(); updateFieldFillStates(); });
-  setWaterLookupStatusText('Map spot set. Checking nearby water...');
-  await detectNearbyWater(Number(lat),Number(lng));
-  setStatus('Spot set from map. Fill out the log and save it.', 3600);
-}
-
-
-let _mapPickInitialized=false;
-function ensureMapPickOverlay(){
-  if(state.mapPickOverlay && document.body.contains(state.mapPickOverlay)) return state.mapPickOverlay;
-  const overlay=document.createElement('div');
-  overlay.id='mapPickOverlay';
-  overlay.className='map-pick-overlay';
-  overlay.setAttribute('aria-hidden','true');
-  document.body.appendChild(overlay);
-  state.mapPickOverlay=overlay;
-  return overlay;
-}
-
-function hideMapPickOverlay(){
-  const overlay=ensureMapPickOverlay();
-  overlay.classList.remove('visible');
-  overlay.setAttribute('aria-hidden','true');
-  overlay.style.pointerEvents='none';
-}
-
-function showMapPickOverlay(){
-  const overlay=ensureMapPickOverlay();
-  const mapEl=map.getContainer();
-  const rect=mapEl.getBoundingClientRect();
-  overlay.style.left=rect.left+'px';
-  overlay.style.top=rect.top+'px';
-  overlay.style.width=rect.width+'px';
-  overlay.style.height=rect.height+'px';
-  overlay.classList.add('visible');
-  overlay.setAttribute('aria-hidden','false');
-  overlay.style.pointerEvents='auto';
-}
-
-function detachMapPickHandlers(){
-  const overlay=state.mapPickOverlay;
-  if(overlay && state._mapPickOverlayHandler){
-    ['click','pointerup','touchend','mouseup'].forEach(type=>overlay.removeEventListener(type, state._mapPickOverlayHandler, true));
-  }
-  state._mapPickOverlayHandler=null;
-  hideMapPickOverlay();
+  return window.MapPickController?.finish?.(lat,lng);
 }
 
 function initializeMapPickHandlers(){
-  if(_mapPickInitialized) return;
-  _mapPickInitialized=true;
-  window.addEventListener('resize', ()=>{ if(state.pickOnMapArmed) showMapPickOverlay(); });
-  window.addEventListener('scroll', ()=>{ if(state.pickOnMapArmed) showMapPickOverlay(); }, true);
-}
-
-function armMapPickHandlers(){
-  detachMapPickHandlers();
-  const overlay=ensureMapPickOverlay();
-  state._mapPickOverlayHandler=async event=>{
-    if(!state.pickOnMapArmed || !state.addMode) return;
-    if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!==0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const ll=pointFromClientEvent(event);
-    if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)){
-      setStatus('Map pick failed. Tap the map again.', 3200);
-      return;
-    }
-    await finishMapPick(ll.lat,ll.lng);
-  };
-  ['click','pointerup','touchend','mouseup'].forEach(type=>overlay.addEventListener(type, state._mapPickOverlayHandler, true));
-  showMapPickOverlay();
+  return window.MapPickController?.initialize?.();
 }
 
 function beginPickOnMap(){
-  state.pendingLocationRequestId+=1;
-  state.addMode=true;
-  state.pickOnMapArmed=true;
-  state._lastMapPickAt=0;
-  syncAddLogButton();
-  closeSheet($('logSheet'));
-  closeSheet($('reviewSheet'));
-  closeSheet($('filterSheet'));
-  closeSheet($('anglerSheet'));
-  closeSheet($('predictSheet'));
-  setMapPickVisuals(true);
-  armMapPickHandlers();
-  setStatus(state.currentDraftMarker ? 'Pick on Map is active. Tap the map once to move the spot.' : 'Pick on Map is active. Tap the map once to set the spot.', 7000);
-  setWaterLookupStatusText('Pick on Map is active. Tap the map once to set the spot.');
-  try{ map.invalidateSize(); showMapPickOverlay(); }catch(_e){}
+  return window.MapPickController?.begin?.();
 }
 
 
@@ -1942,9 +1844,14 @@ function closePickerPopover(){
   picker.classList.remove('visible');
   picker.setAttribute('aria-hidden','true');
   document.body.classList.remove('picker-open');
+  const priorSelect=activeSheetSelect;
   activeSheetSelect=null;
   const optionsWrap=$('pickerOptions');
   if(optionsWrap) optionsWrap.onscroll=null;
+  clearTimeout(pickerScrollTimer);
+  pickerScrollTimer=null;
+  const trigger=getPickerTriggerForSelect(priorSelect);
+  try{ trigger?.focus({preventScroll:true}); }catch(_e){ trigger?.focus?.(); }
 }
 
 
@@ -2049,9 +1956,12 @@ function openSheetSelect(select, triggerEl=null){
     btn.className='picker-option';
     btn.textContent=option.textContent;
     btn.dataset.value=option.value;
-    btn.addEventListener('click',()=>{
+    btn.addEventListener('click',event=>{
+      event.preventDefault();
+      event.stopPropagation();
       setPickerSelection(select, option.value);
-      centerPickerOnValue(option.value,{smooth:true});
+      centerPickerOnValue(option.value,{smooth:false});
+      closePickerPopover();
     });
     optionsWrap.appendChild(btn);
   });
@@ -2203,18 +2113,21 @@ function clearDraftMarker(){
 }
 
 function openSheet(el){
+  closePickerPopover();
   if(window.SheetController) return window.SheetController.open(el);
   el.classList.add('visible');
   el.setAttribute('aria-hidden','false');
 }
 
 function closeSheet(el){
+  closePickerPopover();
   if(window.SheetController) return window.SheetController.close(el);
   el.classList.remove('visible');
   el.setAttribute('aria-hidden','true');
 }
 
 function closeAllSheets(){
+  closePickerPopover();
   if(window.SheetController) return window.SheetController.closeAll(['logSheet','anglerSheet','reviewSheet','predictSheet','filterSheet','readMeSheet']);
   ['logSheet','anglerSheet','reviewSheet','predictSheet','filterSheet','readMeSheet'].forEach(id=>{ const el=$(id); if(el) closeSheet(el); });
 }
@@ -2249,7 +2162,8 @@ function toggleMapSearchPanel(force){
   panel.classList.toggle('hidden', !show);
   panel.setAttribute('aria-hidden', show ? 'false' : 'true');
   if(show){
-    $('mapSearchInput')?.focus();
+    const input=$('mapSearchInput');
+    try{ input?.focus({preventScroll:true}); }catch(_e){ input?.focus(); }
   }else if($('mapSearchResults')){
     $('mapSearchResults').classList.add('hidden');
     $('mapSearchResults').innerHTML='';
@@ -2296,6 +2210,7 @@ async function searchMapLocations(){
     if(!response.ok) throw new Error(`Search returned ${response.status}`);
     const results=await response.json();
     renderMapSearchResults(Array.isArray(results) ? results : []);
+    try{ $('mapSearchInput')?.blur(); }catch(_e){}
     if(!Array.isArray(results) || !results.length){
       setStatus('No map results found for that search.', 2800);
     }
@@ -2509,8 +2424,9 @@ $('cloudBtn').addEventListener('click', async ()=>{
   const diag=getCloudConfigDiagnostics();
   if(!diag.configured) {
     const message=diag.missing.length
-      ? 'Cloud setup is incomplete. Missing: ' + diag.missing.join(', ') + '. Check supabase-config.js and make sure the page can load the Supabase JS library.'
+      ? 'Cloud setup is incomplete. Missing: ' + diag.missing.join(', ') + '. Check supabase-config.js (or legacy config.js) and make sure the page can load the Supabase JS library.'
       : 'Cloud setup is incomplete.';
+    setStatus(message, 5200);
     alert(message);
     return;
   }
@@ -2522,9 +2438,33 @@ $('closeLogSheetBtn').addEventListener('click',()=>{
 });
 $('closeAnglerSheetBtn').addEventListener('click',()=>closeSheet($('anglerSheet')));
 
-$('predictBtn').addEventListener('click',()=>{ setStatus('Prediction is coming, but it is not live yet.', 2600); });
+if(window.FishingPredictionReadme?.apply) window.FishingPredictionReadme.apply();
+$('predictBtn').addEventListener('click',()=>{
+  cancelAddMode();
+  closeAllSheets();
+  if(window.FishingPredictionReadme?.apply) window.FishingPredictionReadme.apply();
+  openSheet($('predictSheet'));
+  setStatus('Prediction planning screen opened.', 2600);
+});
 $('closePredictSheetBtn').addEventListener('click',()=>closeSheet($('predictSheet')));
-$('predictNotLiveBtn').addEventListener('click',()=>setStatus('Prediction section is just the form shell for now.', 2600));
+$('predictNotLiveBtn').addEventListener('click',()=>setStatus('Prediction uses logged patterns and AI analysis later. The details are in this screen now.', 3200));
+if(window.MapPickController?.init){
+  window.MapPickController.init({
+    map,
+    L,
+    state,
+    closeSheet,
+    closeAllSheets,
+    openSheet,
+    setStatus,
+    syncAddLogButton,
+    setWaterLookupStatusText,
+    setDraftMarker,
+    detectNearbyWater,
+    updateFieldFillStates,
+    $
+  });
+}
 setOptions($('predictSpecies'), MIDWEST_FISH_SPECIES, 'Choose one');
 const reviewSortIds=['sortNewest','sortOldest','sortSpecies','sortAngler','sortWater','sortBait'];
 reviewSortIds.forEach(id=>{
@@ -2664,7 +2604,9 @@ $('waterName').addEventListener('input',()=>{
   updateSheetSelectTriggers();
 });
 $('waterType').addEventListener('change',()=>{ updateConditionFieldsForWaterType(); refreshSharingSummary(); updateSheetSelectTriggers(); });
-['date','timeOfDay','waterName','wind','windDirection','waterCondition','waterClarity','surfaceCondition','currentSpeed','bottomType','structureType','baitSize','mainColor','additionalColor','species','notes','sizeInches','airTemp','waterTemp'].forEach(id=>{ const el=$(id); if(el) ['input','change'].forEach(evt=>el.addEventListener(evt, updateFieldFillStates)); });
+['date','timeOfDay','waterName','wind','windDirection','waterCondition','waterClarity','surfaceCondition','currentSpeed','bottomType','structureType','baitSize','mainColor','additionalColor','species','notes','sizeInches','airTemp','waterTemp','waterDepthFt','presentationDepthFt'].forEach(id=>{ const el=$(id); if(el) ['input','change'].forEach(evt=>el.addEventListener(evt, updateFieldFillStates)); });
+$('logForm')?.addEventListener('input', event=>{ if(event.target && event.target.closest('#logForm')) updateFieldFillStates(); });
+$('logForm')?.addEventListener('change', event=>{ if(event.target && event.target.closest('#logForm')) updateFieldFillStates(); });
 $('waterClarity').addEventListener('change',syncMirroredConditionFields);
 $('waterDepthFt').addEventListener('input',syncMirroredConditionFields);
 $('saveBtn').addEventListener('click',()=>{
@@ -2684,9 +2626,10 @@ updateSheetSelectTriggers();
 syncStateToAllFilterInputs();
 setStatus(`Fishing Logbook ${APP_VERSION} loaded.`, 2200);
 render();
-initCloud();
+Promise.resolve(window.__FISHING_SUPABASE_CONFIG_LOADER__ || null).finally(()=>initCloud());
 
-$('closePickerBtn').addEventListener('click',()=>closePickerPopover());
+$('closePickerBtn').addEventListener('click',event=>{ event.preventDefault(); event.stopPropagation(); closePickerPopover(); });
 document.addEventListener('click',event=>{ const picker=$('sheetPicker'); if(!picker || !picker.classList.contains('visible')) return; if(picker.contains(event.target) || event.target.classList.contains('sheet-select-trigger')) return; closePickerPopover(); });
+$('sheetPicker')?.addEventListener('click', event=>event.stopPropagation());
 document.addEventListener('keydown',event=>{ if(event.key==='Escape') closePickerPopover(); });
 window.addEventListener('resize', ()=>{ updateSheetSelectTriggers(); if(activeSheetSelect) positionPickerPopover(getPickerTriggerForSelect(activeSheetSelect)); });

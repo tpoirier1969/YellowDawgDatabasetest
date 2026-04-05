@@ -209,7 +209,7 @@ select{appearance:none;-webkit-appearance:none;background-image:linear-gradient(
 
 
 /* v10.35.1 sheet selectors and typed numeric cleanup */
-.native-select-hidden{position:absolute !important;opacity:0 !important;pointer-events:none !important;width:1px !important;height:1px !important;}
+.native-select-hidden{display:none !important;position:absolute !important;opacity:0 !important;pointer-events:none !important;width:1px !important;height:1px !important;}
 .sheet-select-trigger{width:100%;min-height:48px;border-radius:14px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text);padding:12px 40px 12px 13px;text-align:left;font:inherit;position:relative;}
 .sheet-select-trigger::after{content:'›';position:absolute;right:14px;top:50%;transform:translateY(-50%) rotate(90deg);font-size:18px;color:rgba(255,255,255,.72);}
 .sheet-select-trigger.is-placeholder{color:var(--muted);}
@@ -480,4 +480,46 @@ body.picker-open{overflow:hidden;}
     max-width:none !important;
     transform:none !important;
   }
+}
+
+
+/* v10.39.5 picker, cloud, and map toggle corrections */
+@media (max-width:720px){
+  body.action-dock-hidden #mapUiToggleBar{
+    left:auto !important;
+    right:12px !important;
+    width:auto !important;
+    max-width:none !important;
+    transform:none !important;
+    justify-content:flex-end !important;
+    bottom:var(--safe-bottom) !important;
+  }
+  body.action-dock-hidden #mapUiToggleBar .dockToggleBtn{
+    width:auto !important;
+    min-width:92px;
+  }
+  .trip-date-row,
+  .trip-date-row label,
+  .trip-date-row input,
+  .trip-date-row .sheet-select-trigger{
+    min-width:0;
+    max-width:100%;
+  }
+  .trip-date-row input[type='date']{
+    width:100%;
+    font-size:15px;
+    padding-right:10px;
+  }
+}
+#logForm label.track-fill input[type='date']::-webkit-date-and-time-value{
+  text-align:left;
+}
+#mapSearchPanel,
+#mapSearchResults,
+#sheetPicker,
+#sheetPicker *{
+  touch-action:manipulation;
+}
+.picker-sheet .sheetClose{
+  min-width:72px;
 }
