@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Fishing Logbook v10.38.0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Fishing Logbook v10.39.0</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -20,15 +20,12 @@
 </head>
 <body>
 <div id="map"></div>
-<div id="topBadge" class="glass">Fishing Logbook v10.38.0</div>
+<div id="topBadge" class="glass">Fishing Logbook v10.39.0</div>
 <div id="buildNotice" class="noticeBanner">This app is still in development. Issues may arise as features are added but they will be fixed shortly, provided I'm not out casting a fly.</div>
 <div id="statusBadge" class="glass hidden">Ready.</div>
 <div id="cloudBadge" class="glass hidden"></div>
 
 <div id="mapUiToggleBar">
-  <button id="readMeBtn" class="pill dockToggleBtn" type="button">Read Me</button>
-  <button id="mapSearchToggleBtn" class="pill dockToggleBtn" type="button">Search</button>
-  <button id="hideActionDockBtn" class="pill dockToggleBtn" type="button">Map Only</button>
   <button id="showActionDockBtn" class="pill dockToggleBtn hidden" type="button">Menu</button>
 </div>
 
@@ -41,12 +38,14 @@
 </div>
 
 <div id="floatingActions">
-  <button id="anglerSetupBtn" class="pill">Options</button>
-  <button id="addLogBtn" class="pill primary">Add Log</button>
-  <button id="reviewBtn" class="pill">Review</button>
-  <button id="filterBtn" class="pill">Filters</button>
-  <button id="cloudBtn" class="pill">Sync Cloud</button>
-  <button id="predictBtn" class="pill">Prediction</button>
+  <button id="addLogBtn" class="pill primary" type="button">Add Log</button>
+  <button id="reviewBtn" class="pill" type="button">Review</button>
+  <button id="hideActionDockBtn" class="pill" type="button">Map Only</button>
+  <button id="cloudBtn" class="pill" type="button">Cloud Sync</button>
+  <button id="mapSearchToggleBtn" class="pill" type="button">Search</button>
+  <button id="predictBtn" class="pill comingBtn" type="button"><span class="strike">Prediction</span><small>coming</small></button>
+  <button id="anglerSetupBtn" class="pill" type="button">Options</button>
+  <button id="readMeBtn" class="pill" type="button">Read Me</button>
 </div>
 
 <div id="logSheet" class="sheet" aria-hidden="true">
@@ -59,7 +58,7 @@
   <form id="logForm" autocomplete="off" novalidate>
     <div class="section">
       <div class="section-title">Trip</div>
-      <div class="helper-box" id="waterLookupStatus">Tap Add Log to use your phone location, or pick a spot on the map.</div>
+      <div class="helper-box hidden" id="waterLookupStatus"></div>
       <div class="location-actions compact-actions">
         <button type="button" id="useDeviceLocationBtn" class="secondaryBtn">Use My Location</button>
         <button type="button" id="pickOnMapBtn" class="secondaryBtn">Pick on Map</button>
@@ -76,7 +75,7 @@
       <label class="track-fill">Body of Water<input type="text" id="waterName" name="waterName" list="waterNameSuggestionsList"><datalist id="waterNameSuggestionsList"></datalist></label>
       <label id="waypointFieldWrap" class="hidden">Waypoint<input type="text" id="waypointName" name="waypointName" placeholder="Optional"></label>
       <input type="hidden" id="sharePreview" name="sharePreview" value="">
-      <div class="form-grid keep-two compact-grid">
+      <div class="form-grid keep-two compact-grid water-type-row">
         <label class="track-fill">Water Type
           <select id="waterType" name="waterType">
             <option value="">Choose one</option>
@@ -87,7 +86,6 @@
             <option>Great Lake</option>
           </select>
         </label>
-        <div class="inline-helper">Optional fields can stay blank.</div>
       </div>
     </div>
 
@@ -234,15 +232,17 @@
 
     <div class="section">
       <div class="section-title">Results</div>
-      <div class="form-grid four compact-grid">
+      <div class="form-grid keep-two compact-grid">
         <label class="track-fill">Species
           <select id="species" name="species">
             <option value="">Choose one</option>
           </select>
         </label>
+        <label>Quantity<input type="number" id="quantity" name="quantity" min="1" step="1" value="1" required></label>
+      </div>
+      <div class="form-grid keep-two compact-grid size-weight-row">
         <label>Size (inches)<input type="text" inputmode="decimal" id="sizeInches" name="sizeInches" placeholder="Optional"></label>
         <label>Weight<input type="text" id="weight" name="weight" placeholder="Optional"></label>
-        <label>Quantity<input type="number" id="quantity" name="quantity" min="1" step="1" value="1" required></label>
       </div>
       <label>Notes<textarea id="notes" name="notes" rows="3" placeholder="Anything worth remembering."></textarea></label>
     </div>
@@ -346,9 +346,9 @@
 </ul>
 <p>Shared map placement follows a simple rule: it uses the nearest public access point when one is found. If no access point is found, it uses the saved fishing spot itself. It does not intentionally throw markers into random areas.</p>
 <h3>Where It’s Going</h3>
-    <p>This app is already in production, but it is still evolving. New features will continue to be added, with the long-term goal of building a more predictive, AI-driven fishing experience. As more data is logged, the system will be able to do a better job identifying patterns and helping anglers make smarter decisions about where, when, and how to fish.</p>
+    <p>This is a hobby project under active development. New features will continue to be added, with the long-term goal of building a more predictive, AI-driven fishing experience. As more data is logged, the system will be able to do a better job identifying patterns and help anglers make smarter decisions about where, when, and how to fish.</p>
     <h3>Development Note</h3>
-    <p>This is a live project under active development. Improvements and new features are being added over time, and some parts of the app may change as the system grows.</p>
+    <p>This is a hobby project under active development. Improvements and new features are being added over time, and some parts of the app may change as the system grows.</p>
   </div>
 </div>
 
@@ -356,9 +356,12 @@
   <div class="sheet-handle"></div>
   <div class="sheet-head">
     <div><h2 id="pickerTitle">Choose one</h2></div>
-    <button id="closePickerBtn" class="sheetClose" type="button">Close</button>
+    <button id="closePickerBtn" class="sheetClose" type="button">Done</button>
   </div>
-  <div id="pickerOptions" class="picker-options"></div>
+  <div class="picker-wheel-wrap">
+    <div class="picker-selection-band" aria-hidden="true"></div>
+    <div id="pickerOptions" class="picker-options"></div>
+  </div>
 </div>
 
 <div id="reviewSheet" class="sheet" aria-hidden="true">

@@ -1,4 +1,4 @@
-Fishing Logbook v10.38.0
+Fishing Logbook v10.39.0
 
 What changed
 - rebuilt the Add Log form flow so Trip, Conditions, Type of Fishing, and Results read more cleanly
@@ -25,3 +25,10 @@ Notes
 - hotfix: bait type change now repopulates subtype and presentation fields
 - hotfix: Steelhead restored as a separate species choice
 - hotfix: generic Name / Choose fishing type first state removed until a relevant type is selected
+
+- phone action dock compacted to a 2-column layout with the main actions in the requested order
+- map/search/read me moved into the main dock; Cloud Sync naming standardized
+- review list tightened up, stats compressed, and delete is limited to the angler who created the log when a matching angler key is present
+- picker logic rebuilt toward a centered wheel-style anchored popover for Add Log and Options fields
+- required-field validation now follows the new required list and jumps to the missing field
+- saved filters persist between normal view and Map Only view on this device
