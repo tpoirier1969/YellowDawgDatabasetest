@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.2';
+const APP_VERSION='v10.39.4';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -41,10 +41,10 @@ const PRESENTATION_OPTIONS={
   'Ice':{styles:['Tip-Up','Jigging','Deadstick','Set Line','Spearing / Hand Gaff','Lift and Drop','Pound Bottom','Hover','Swim / Glide'],depths:['Just Under Ice','Upper Column','Mid-Column','Near Bottom','Bottom'],speeds:['Still','Subtle','Moderate','Aggressive']}
 };
 const MIDWEST_FISH_SPECIES=FishingVocab.MIDWEST_FISH_SPECIES || [
-  'Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bullhead','Burbot','Channel Catfish',
-  'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Flathead Catfish','Freshwater Drum','Gar','Hybrid Striped Bass',
-  'Lake Sturgeon','Lake Trout','Lake Whitefish','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed',
-  'Rainbow Trout','Rock Bass','Sauger','Smallmouth Bass','Splake','Steelhead','Sunfish','Walleye','White Bass','White Crappie','Whitefish (Lake Whitefish)','Yellow Perch'
+  'Arctic Grayling','Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bull Trout','Bullhead','Burbot','Channel Catfish',
+  'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Crappie (Unspecified)','Cutbow Trout','Cutthroat Trout','Flathead Catfish','Freshwater Drum','Gar','Golden Trout','Hybrid Striped Bass',
+  'Kokanee Salmon','Lake Sturgeon','Lake Trout','Lake Whitefish','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed','Rainbow Trout','Redbreast Sunfish','Rock Bass',
+  'Sauger','Smallmouth Bass','Splake','Steelhead','Sunfish','Tiger Trout','Walleye','White Bass','White Crappie','Whitefish (Lake Whitefish)','Yellow Perch'
 ].sort((a,b)=>a.localeCompare(b));
 
 const GREAT_LAKE_FALLBACKS=[
@@ -808,15 +808,34 @@ async function deleteCloudEntry(entryId){
 }
 
 
+function getSubtypeFieldLabel(type=''){
+  switch(String(type||'')){
+    case 'Fly': return 'Fly Type';
+    case 'Lure': return 'Lure Type';
+    case 'Live Bait': return 'Bait Choice';
+    case 'Ice': return 'Ice Bait';
+    default: return 'Choice';
+  }
+}
+
+function getBaitNameFieldLabel(type=''){
+  switch(String(type||'')){
+    case 'Fly': return 'Fly Pattern';
+    case 'Lure': return 'Lure Name';
+    default: return 'Name';
+  }
+}
+
 function validateLogForm(){
+  const currentType=$('baitType').value;
   const requiredChecks=[
     {label:'Body of Water', el:$('waterName'), value:$('waterName').value.trim()},
     {label:'Air Temp', el:$('airTemp'), value:$('airTemp').value.trim()},
     {label:'Sky', el:$('skyCondition'), value:$('skyCondition').value},
     {label:'Water Depth', el:$('waterDepthFt'), value:$('waterDepthFt').value.trim()},
     {label:'Wind Direction', el:$('windDirection'), value:$('windDirection').value},
-    {label:'Fishing Type', el:$('baitType'), value:$('baitType').value},
-    {label:'Bait / Fly / Lure', el:$('baitSubtype'), value:$('baitSubtype').value},
+    {label:'Fishing Type', el:$('baitType'), value:currentType},
+    {label:getSubtypeFieldLabel(currentType), el:$('baitSubtype'), value:$('baitSubtype').value},
     {label:'Color', el:$('mainColor'), value:$('mainColor').value},
     {label:'Results', el:$('species'), value:$('species').value}
   ];
@@ -1355,11 +1374,11 @@ function updateBaitHelperContext(){
     return;
   }
   if(type==='Live Bait'){
-    setBaitHelper(subtype ? `Bait selected: ${subtype}.` : 'Choose your bait approach first.');
+    setBaitHelper(subtype ? `Bait choice: ${subtype}.` : 'Choose the bait you used.');
     return;
   }
   if(type==='Ice'){
-    setBaitHelper(subtype ? `Ice bait selected: ${subtype}. Choose how you fished it in Presentation Style.` : 'Choose the bait first, then set Presentation Style, Depth, and Speed.');
+    setBaitHelper(subtype ? `Ice bait: ${subtype}. Use Presentation Style for tip-up, jigging, deadstick, and similar methods.` : 'Choose the bait first, then use Presentation Style for tip-up, jigging, deadstick, and similar methods.');
     return;
   }
   setBaitHelper('');
@@ -1370,6 +1389,8 @@ function applyBaitTypeUI(){
   const baitSubtype=$('baitSubtype');
   const baitSize=$('baitSize');
   const baitName=$('baitName');
+  const subtypeLabel=getSubtypeFieldLabel(type);
+  const baitNameLabel=getBaitNameFieldLabel(type);
   $('nameSuggestions').classList.add('hidden');
   baitName.value='';
   baitSize.innerHTML='<option value="">Choose one</option>';
@@ -1389,8 +1410,8 @@ function applyBaitTypeUI(){
     $('sizeWrap').classList.remove('hidden');
     $('nameWrap').classList.add('hidden');
     setOptions(baitSubtype, FLY_TYPES, 'Choose fly type');
-    setLabelText($('subtypeWrap'), 'Fly Type');
-    setLabelText($('nameLabel'), 'Fly Pattern');
+    setLabelText($('subtypeWrap'), subtypeLabel);
+    setLabelText($('nameLabel'), baitNameLabel);
     baitSubtype.required=true;
     baitSize.disabled=false;
     baitSize.required=true;
@@ -1402,8 +1423,8 @@ function applyBaitTypeUI(){
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.add('hidden');
     setOptions(baitSubtype, LURE_TYPES, 'Choose lure type');
-    setLabelText($('subtypeWrap'), 'Lure Type');
-    setLabelText($('nameLabel'), 'Lure Name (optional)');
+    setLabelText($('subtypeWrap'), subtypeLabel);
+    setLabelText($('nameLabel'), baitNameLabel + ' (optional)');
     baitSubtype.required=true;
     baitName.placeholder='';
   } else if(type==='Live Bait'){
@@ -1411,7 +1432,7 @@ function applyBaitTypeUI(){
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.add('hidden');
     setOptions(baitSubtype, LIVE_BAIT_TYPES, 'Choose bait type');
-    setLabelText($('subtypeWrap'), 'Bait Type');
+    setLabelText($('subtypeWrap'), subtypeLabel);
     baitSubtype.required=true;
     baitName.disabled=true;
   } else if(type==='Ice'){
@@ -1419,7 +1440,7 @@ function applyBaitTypeUI(){
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.add('hidden');
     setOptions(baitSubtype, ICE_BAIT_TYPES, 'Choose ice bait');
-    setLabelText($('subtypeWrap'), 'Ice Bait');
+    setLabelText($('subtypeWrap'), subtypeLabel);
     baitSubtype.required=true;
     baitName.disabled=true;
   } else {

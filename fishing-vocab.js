@@ -7,9 +7,9 @@ window.FishingVocab = {
   LURE_TYPES: ['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'],
   LIVE_BAIT_TYPES: ['Minnow','Crawler','Worm','Cut Bait','Spawn','Waxworm / Wiggler','Leech','Grasshopper','Other'],
   MIDWEST_FISH_SPECIES: [
-    'Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bullhead','Burbot','Channel Catfish',
-    'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Flathead Catfish','Freshwater Drum','Gar','Hybrid Striped Bass',
-    'Lake Sturgeon','Lake Trout','Lake Whitefish','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed',
-    'Rainbow Trout','Rock Bass','Sauger','Smallmouth Bass','Splake','Steelhead','Sunfish','Walleye','White Bass','White Crappie','Whitefish (Lake Whitefish)','Yellow Perch'
+    'Arctic Grayling','Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bull Trout','Bullhead','Burbot','Channel Catfish',
+    'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Crappie (Unspecified)','Cutbow Trout','Cutthroat Trout','Flathead Catfish','Freshwater Drum','Gar','Golden Trout','Hybrid Striped Bass',
+    'Kokanee Salmon','Lake Sturgeon','Lake Trout','Lake Whitefish','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed','Rainbow Trout','Redbreast Sunfish','Rock Bass',
+    'Sauger','Smallmouth Bass','Splake','Steelhead','Sunfish','Tiger Trout','Walleye','White Bass','White Crappie','Whitefish (Lake Whitefish)','Yellow Perch'
   ].sort((a,b)=>a.localeCompare(b))
 };

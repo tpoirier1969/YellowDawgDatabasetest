@@ -440,3 +440,44 @@ body.picker-open{overflow:hidden;}
     bottom:var(--safe-bottom);
   }
 }
+
+
+/* v10.39.3 phone dock centering correction */
+@media (max-width:720px){
+  html,body{overflow-x:hidden !important;}
+  #floatingActions{
+    left:12px !important;
+    right:12px !important;
+    width:auto !important;
+    max-width:none !important;
+    transform:none !important;
+    margin:0 !important;
+    padding:0 !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    justify-items:stretch;
+    align-items:stretch;
+  }
+  #floatingActions .pill{
+    width:100% !important;
+    min-width:0 !important;
+    min-height:40px !important;
+    padding:0 6px !important;
+    font-size:13px !important;
+  }
+  #mapUiToggleBar{
+    left:12px !important;
+    right:12px !important;
+    width:auto !important;
+    max-width:none !important;
+    transform:none !important;
+    justify-content:center !important;
+  }
+  #statusBadge{
+    left:12px !important;
+    right:12px !important;
+    width:auto !important;
+    max-width:none !important;
+    transform:none !important;
+  }
+}
