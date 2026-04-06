@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.6';
+const APP_VERSION='v10.39.7';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -27,7 +27,7 @@ const LIVE_BAIT_TYPES=FishingVocab.LIVE_BAIT_TYPES || ['Minnow','Crawler','Worm'
 const ICE_BAIT_TYPES=['Minnow','Shiner','Sucker Minnow','Waxworm / Euro Larva','Mealworm','Spawn','Cut Bait','Soft Plastic','Artificial Jig / Spoon','Other'];
 const SKY_OPTIONS=['Clear','Partly Cloudy','Cloudy','Rain','Snow','Night'];
 const LAKE_WATER_LEVEL_OPTIONS=['Low','Normal','High'];
-const RIVER_WATER_LEVEL_OPTIONS=['Low','Normal','High','Bankfull'];
+const RIVER_WATER_LEVEL_OPTIONS=['Low','Normal','High'];
 const LAKE_SURFACE_OPTIONS=['Still','Rippled','Choppy','Wavy','Rolling','Rough'];
 const RIVER_CURRENT_OPTIONS=['Slow','Medium','Strong','Fast','Rapids'];
 const LAKE_STRUCTURE_TYPES=['Weed Edge','Rock Pile','Drop-off','Point','Flat','Hump','Shoal','Reef','Inside Turn','Outside Turn','Inlet / Outlet','Dock','Marina','Shoreline','Open Water','Timber'];
@@ -54,6 +54,17 @@ const GREAT_LAKE_FALLBACKS=[
   {name:'Lake Erie', minLat:41.20, maxLat:42.95, minLng:-83.65, maxLng:-78.75},
   {name:'Lake Ontario', minLat:43.10, maxLat:44.55, minLng:-79.95, maxLng:-76.05}
 ];
+
+
+function haversineMeters(lat1, lng1, lat2, lng2){
+  const toRad=value=>value * Math.PI / 180;
+  const dLat=toRad(Number(lat2) - Number(lat1));
+  const dLng=toRad(Number(lng2) - Number(lng1));
+  const startLat=toRad(Number(lat1));
+  const endLat=toRad(Number(lat2));
+  const a=Math.sin(dLat/2) ** 2 + Math.cos(startLat) * Math.cos(endLat) * Math.sin(dLng/2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
 
 const accessPointCache=new Map();
@@ -2407,6 +2418,11 @@ if($('showActionDockBtn')) $('showActionDockBtn').addEventListener('click',()=>s
 if($('mapSearchToggleBtn')) $('mapSearchToggleBtn').addEventListener('click',()=>toggleMapSearchPanel());
 if($('mapSearchGoBtn')) $('mapSearchGoBtn').addEventListener('click',searchMapLocations);
 if($('mapSearchInput')) $('mapSearchInput').addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchMapLocations(); }});
+if($('mapSearchInput')) $('mapSearchInput').addEventListener('focus',()=>{
+  setTimeout(()=>{
+    try{ $('mapSearchInput').scrollIntoView({behavior:'smooth', block:'center'}); }catch(_e){}
+  }, 260);
+});
 if($('readMeBtn')) $('readMeBtn').addEventListener('click',()=>{ closeAllSheets(); openSheet($('readMeSheet')); });
 if($('closeReadMeSheetBtn')) $('closeReadMeSheetBtn').addEventListener('click',()=>closeSheet($('readMeSheet')));
 if($('reviewBtn')) $('reviewBtn').addEventListener('click',()=>{

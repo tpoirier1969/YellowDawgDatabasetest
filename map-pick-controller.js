@@ -56,16 +56,20 @@ window.MapPickController=(function(){
     overlay.style.height=rect.height+'px';
     overlay.classList.add('visible');
     overlay.setAttribute('aria-hidden','false');
-    overlay.style.pointerEvents='auto';
+    overlay.style.pointerEvents='none';
   }
 
   function detach(){
-    const {state}=requireDeps();
+    const {state, map}=requireDeps();
     const overlay=state.mapPickOverlay;
     if(overlay && state._mapPickOverlayHandler){
       ['click','pointerup','touchend','mouseup'].forEach(type=>overlay.removeEventListener(type, state._mapPickOverlayHandler, true));
     }
+    if(map && state._mapPickMapClickHandler){
+      map.off('click', state._mapPickMapClickHandler);
+    }
     state._mapPickOverlayHandler=null;
+    state._mapPickMapClickHandler=null;
     hideOverlay();
   }
 
@@ -94,22 +98,34 @@ window.MapPickController=(function(){
   }
 
   function arm(){
-    const {state, setStatus}=requireDeps();
+    const {state, setStatus, map}=requireDeps();
     detach();
     const overlay=ensureOverlay();
     state._mapPickOverlayHandler=async event=>{
       if(!state.pickOnMapArmed || !state.addMode) return;
       if(event.type==='pointerup' && event.pointerType==='mouse' && event.button!==0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const ll=pointFromClientEvent(event);
+      if(event.type==='touchend'){
+        event.preventDefault();
+        event.stopPropagation();
+        const ll=pointFromClientEvent(event);
+        if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)){
+          setStatus('Map pick failed. Tap the map again.', 3200);
+          return;
+        }
+        await finish(ll.lat, ll.lng);
+      }
+    };
+    state._mapPickMapClickHandler=async event=>{
+      if(!state.pickOnMapArmed || !state.addMode) return;
+      const ll=event?.latlng;
       if(!ll || !Number.isFinite(ll.lat) || !Number.isFinite(ll.lng)){
         setStatus('Map pick failed. Tap the map again.', 3200);
         return;
       }
       await finish(ll.lat, ll.lng);
     };
-    ['click','pointerup','touchend','mouseup'].forEach(type=>overlay.addEventListener(type, state._mapPickOverlayHandler, true));
+    overlay.addEventListener('touchend', state._mapPickOverlayHandler, true);
+    map.on('click', state._mapPickMapClickHandler);
     showOverlay();
   }
 
