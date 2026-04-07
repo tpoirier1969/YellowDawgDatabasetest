@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.9';
+const APP_VERSION='v10.39.10';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -40,6 +40,23 @@ const PRESENTATION_OPTIONS={
   'Live Bait':{styles:['Under Bobber','Slip Float','Bottom Rig','Drift','Free Line','Tip-Up'],depths:['Surface','Shallow','Mid-Column','Near Bottom','Bottom'],speeds:['Static','Slow Drift','Controlled Drift']},
   'Ice':{styles:['Tip-Up','Jigging','Deadstick','Set Line','Spearing / Hand Gaff','Lift and Drop','Pound Bottom','Hover','Swim / Glide'],depths:['Just Under Ice','Upper Column','Mid-Column','Near Bottom','Bottom'],speeds:['Still','Subtle','Moderate','Aggressive']}
 };
+
+function normalizeFishingTypeKey(raw=''){
+  const value=String(raw||'').trim();
+  if(!value) return '';
+  const map={
+    'Fly':'Fly',
+    'Fly Fishing':'Fly',
+    'Live Bait':'Live Bait',
+    'Natural Bait':'Live Bait',
+    'Lure':'Lure',
+    'Artificial Lures':'Lure',
+    'Ice':'Ice',
+    'Ice Fishing':'Ice'
+  };
+  return map[value] || value;
+}
+
 const MIDWEST_FISH_SPECIES=FishingVocab.MIDWEST_FISH_SPECIES || [
   'Arctic Grayling','Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bull Trout','Bullhead','Burbot','Channel Catfish',
   'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Crappie (Unspecified)','Cutbow Trout','Cutthroat Trout','Flathead Catfish','Freshwater Drum','Gar','Golden Trout','Hybrid Striped Bass',
@@ -1276,11 +1293,46 @@ function updateConditionFieldsForWaterType(){
 
 
 function updatePresentationOptions(){
-  const type=$('baitType').value;
+  const type=normalizeFishingTypeKey($('baitType').value);
   const profile=PRESENTATION_OPTIONS[type] || {styles:[],depths:[],speeds:[]};
-  setOptions($('presentationStyle'), profile.styles, 'Choose one');
-  setOptions($('depthZone'), profile.depths, 'Choose one');
-  setOptions($('retrieveSpeed'), profile.speeds, 'Choose one');
+  const styleSelect=$('presentationStyle');
+  const depthSelect=$('depthZone');
+  const speedSelect=$('retrieveSpeed');
+  if(styleSelect) styleSelect.dataset.presentationType=type;
+  if(depthSelect) depthSelect.dataset.presentationType=type;
+  if(speedSelect) speedSelect.dataset.presentationType=type;
+  setOptions(styleSelect, profile.styles, 'Choose one');
+  setOptions(depthSelect, profile.depths, 'Choose one');
+  setOptions(speedSelect, profile.speeds, 'Choose one');
+  [styleSelect, depthSelect, speedSelect].forEach(select=>{
+    if(select) select.disabled=!type || select.options.length<=1;
+  });
+  updateSheetSelectTriggers();
+  updateFieldFillStates();
+}
+
+function repairPresentationSelect(select){
+  if(!select) return;
+  const type=normalizeFishingTypeKey($('baitType').value || select.dataset.presentationType || '');
+  if(!type) return;
+  const profile=PRESENTATION_OPTIONS[type] || {styles:[],depths:[],speeds:[]};
+  const selectId=select.id;
+  let expected=[];
+  if(selectId==='presentationStyle') expected=profile.styles;
+  else if(selectId==='depthZone') expected=profile.depths;
+  else if(selectId==='retrieveSpeed') expected=profile.speeds;
+  if(!expected.length) return;
+  const hasRealOptions=[...select.options].some(option=>option.value);
+  const currentValues=[...select.options].filter(option=>option.value).map(option=>option.value);
+  const mismatched=currentValues.length!==expected.length || currentValues.some((value,index)=>value!==expected[index]);
+  if(!hasRealOptions || mismatched){
+    const current=select.value;
+    setOptions(select, expected, 'Choose one');
+    if(current && expected.includes(current)) select.value=current;
+    updateSheetSelectTriggers();
+    updateFieldFillStates();
+  }
+  select.disabled=false;
 }
 
 function updateHatchesVisibility(){
@@ -2620,6 +2672,12 @@ $('baitSubtype').addEventListener('change',()=>{ refreshFlySizeOptions(); applyS
 $('presentationStyle').addEventListener('change',updateFieldFillStates);
 $('depthZone').addEventListener('change',updateFieldFillStates);
 $('retrieveSpeed').addEventListener('change',updateFieldFillStates);
+['presentationStyle','depthZone','retrieveSpeed'].forEach(id=>{
+  const select=$(id);
+  ['focus','mousedown','touchstart','click'].forEach(eventName=>{
+    select.addEventListener(eventName,()=>repairPresentationSelect(select), {passive:true});
+  });
+});
 $('species').addEventListener('change',updateFieldFillStates);
 $('presentationDepthFt').addEventListener('input',updateFieldFillStates);
 $('waterTemp').addEventListener('input',updateFieldFillStates);

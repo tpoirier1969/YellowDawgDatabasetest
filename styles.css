@@ -600,7 +600,7 @@ body, .sheet, .picker-options{-webkit-overflow-scrolling:touch;}
 #sheetPicker{display:none !important;}
 
 
-/* v10.39.9 selector and fly-layout stabilization */
+/* v10.39.10 selector and fly-layout stabilization */
 #logForm select{pointer-events:auto;touch-action:auto;-webkit-touch-callout:default;}
 #logForm option{touch-action:auto;}
 #flyIdentityRow,#flySizeColorRow{align-items:end;}
