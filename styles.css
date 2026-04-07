@@ -598,3 +598,17 @@ body, .sheet, .picker-options{-webkit-overflow-scrolling:touch;}
 @media (max-width:420px){#flySizeColorRow,.water-name-type-row{grid-template-columns:1fr;}}
 #logForm select.native-select-hidden{display:none !important;}
 #sheetPicker{display:none !important;}
+
+
+/* v10.39.9 selector and fly-layout stabilization */
+#logForm select{pointer-events:auto;touch-action:auto;-webkit-touch-callout:default;}
+#logForm option{touch-action:auto;}
+#flyIdentityRow,#flySizeColorRow{align-items:end;}
+#flyIdentityRow .typeahead-wrap{margin:0;}
+#flySizeColorRow{grid-template-columns:repeat(3,minmax(0,1fr));}
+@media (max-width:680px){
+  #flyIdentityRow,#flySizeColorRow{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width:420px){
+  #flyIdentityRow,#flySizeColorRow{grid-template-columns:1fr;}
+}

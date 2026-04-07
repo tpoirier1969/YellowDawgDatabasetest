@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.8';
+const APP_VERSION='v10.39.9';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -191,7 +191,7 @@ const state={
   _lastMapPickAt:0,
   filters:loadSavedFilters(),
   ui:loadUiOptions(),
-  cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true}
+  cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true,omitBottomType:false}
 };
 
 const $=id=>document.getElementById(id);
@@ -782,15 +782,17 @@ async function syncCloud({quiet=false}={}){
   updateCloudUi();
   if(!quiet) setStatus('Syncing shared logs…', 2600);
   try{
-    const rows=(await Promise.all(normalizeEntryArray(state.entries).map(entryToCloudRow))).filter(Boolean);
+    let rows=(await Promise.all(normalizeEntryArray(state.entries).map(entryToCloudRow))).filter(Boolean);
+    if(state.cloud.omitBottomType) rows=rows.map(({bottom_type, ...rest})=>rest);
     if(rows.length){
       let {error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(rows, {onConflict:'id'});
-      if(pushError && /bottom[_ ]type.*schema cache/i.test(String(pushError.message||''))){
+      if(pushError && /bottom\s*_?type.*schema cache|schema cache.*bottom\s*_?type/i.test(String(pushError.message||''))){
         const fallbackRows=rows.map(({bottom_type, ...rest})=>rest);
         ({error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(fallbackRows, {onConflict:'id'}));
         if(!pushError){
+          state.cloud.omitBottomType=true;
           state.cloud.lastError='';
-          setStatus('Cloud sync worked, but your database schema cache is stale for bottom_type. Run the SQL update when convenient.', 5200);
+          setStatus('Cloud sync worked, but Supabase is still blind to bottom_type in schema cache. This build is omitting that field for now.', 5600);
         }
       }
       if(pushError) throw pushError;
@@ -810,7 +812,7 @@ async function syncCloud({quiet=false}={}){
     state.cloud.ready=false;
     updateCloudUi();
     if(!quiet){
-      const prettyError=/bottom[_ ]type.*schema cache/i.test(String(state.cloud.lastError||'')) ? 'Cloud sync failed because Supabase still does not see the bottom_type column in its schema cache. Run the updated SQL or refresh the schema cache in Supabase.' : state.cloud.lastError;
+      const prettyError=/bottom\s*_?type.*schema cache|schema cache.*bottom\s*_?type/i.test(String(state.cloud.lastError||'')) ? 'Cloud sync failed because Supabase still does not see the bottom_type column in its schema cache. This build will omit that field on the next successful sync, but your database still needs the updated SQL or a schema refresh.' : state.cloud.lastError;
       alert(`Cloud sync failed: ${prettyError}`);
       setStatus(`Cloud sync failed: ${prettyError}`, 5200);
     }
@@ -1172,19 +1174,21 @@ function refreshFlySizeOptions(){
     return;
   }
   const subtype=$('baitSubtype').value;
+  const previous=$('baitSize').value;
   const exact=findExactFly($('baitName').value, subtype);
   let sizes=[];
   if(exact && Array.isArray(exact.sizes) && exact.sizes.length){
-    sizes=exact.sizes;
+    sizes=exact.sizes.map(value=>String(value));
   }else if(subtype==='Streamer'){
     sizes=Array.from({length:15}, (_,idx)=>String(idx+2));
   }else if(subtype){
     sizes=Array.from({length:19}, (_,idx)=>String(idx+2));
   }else{
     const pool=getFlyReference();
-    sizes=[...new Set(pool.flatMap(item=>item.sizes||[]))].sort((a,b)=>Number(a)-Number(b));
+    sizes=[...new Set(pool.flatMap(item=>item.sizes||[]).map(value=>String(value)).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
   }
   setOptions($('baitSize'), sizes, sizes.length ? 'Choose fly size' : 'No sizes loaded');
+  if(previous && sizes.includes(previous)) $('baitSize').value=previous;
 }
 
 function applySubtypeColorDefaults(){
@@ -1315,13 +1319,18 @@ function updateBaitHelperContext(){
 
 function applyBaitTypeUI(){
   const type=$('baitType').value;
+  const previousType=$('baitType').dataset.lastType || '';
   const baitSubtype=$('baitSubtype');
   const baitSize=$('baitSize');
   const baitName=$('baitName');
   const subtypeLabel=getSubtypeFieldLabel(type);
   const baitNameLabel=getBaitNameFieldLabel(type);
+  const preserveValues=previousType===type;
+  const priorSubtype=preserveValues ? baitSubtype.value : '';
+  const priorName=preserveValues ? baitName.value : '';
+  const priorSize=preserveValues ? baitSize.value : '';
   $('nameSuggestions').classList.add('hidden');
-  baitName.value='';
+  if(!preserveValues) baitName.value='';
   baitSize.innerHTML='<option value="">Choose one</option>';
   if($('baitHelper')) setBaitHelper('');
 
@@ -1339,6 +1348,7 @@ function applyBaitTypeUI(){
     $('sizeWrap').classList.remove('hidden');
     $('nameWrap').classList.remove('hidden');
     setOptions(baitSubtype, FLY_TYPES, 'Choose fly type');
+    if(priorSubtype && FLY_TYPES.includes(priorSubtype)) baitSubtype.value=priorSubtype;
     setLabelText($('subtypeWrap'), subtypeLabel);
     setLabelText($('nameLabel'), baitNameLabel);
     baitSubtype.required=true;
@@ -1346,12 +1356,15 @@ function applyBaitTypeUI(){
     baitSize.required=true;
     baitName.required=false;
     baitName.placeholder='Start typing a fly name';
+    if(priorName) baitName.value=priorName;
     refreshFlySizeOptions();
+    if(priorSize && [...baitSize.options].some(option=>option.value===priorSize)) baitSize.value=priorSize;
   } else if(type==='Lure'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.add('hidden');
     setOptions(baitSubtype, LURE_TYPES, 'Choose lure type');
+    if(priorSubtype && LURE_TYPES.includes(priorSubtype)) baitSubtype.value=priorSubtype;
     setLabelText($('subtypeWrap'), subtypeLabel);
     setLabelText($('nameLabel'), baitNameLabel + ' (optional)');
     baitSubtype.required=true;
@@ -1361,6 +1374,7 @@ function applyBaitTypeUI(){
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.add('hidden');
     setOptions(baitSubtype, LIVE_BAIT_TYPES, 'Choose bait type');
+    if(priorSubtype && LIVE_BAIT_TYPES.includes(priorSubtype)) baitSubtype.value=priorSubtype;
     setLabelText($('subtypeWrap'), subtypeLabel);
     baitSubtype.required=true;
     baitName.disabled=true;
@@ -1369,6 +1383,7 @@ function applyBaitTypeUI(){
     $('sizeWrap').classList.add('hidden');
     $('nameWrap').classList.add('hidden');
     setOptions(baitSubtype, ICE_BAIT_TYPES, 'Choose ice bait');
+    if(priorSubtype && ICE_BAIT_TYPES.includes(priorSubtype)) baitSubtype.value=priorSubtype;
     setLabelText($('subtypeWrap'), subtypeLabel);
     baitSubtype.required=true;
     baitName.disabled=true;
@@ -1381,6 +1396,7 @@ function applyBaitTypeUI(){
     setLabelText($('nameLabel'), '');
     baitName.placeholder='';
     baitName.disabled=true;
+    baitSubtype.value='';
   }
   $('flyIdentityRow')?.classList.toggle('hidden', type!=='Fly');
   $('flySizeColorRow')?.classList.toggle('hidden', type!=='Fly');
@@ -1389,6 +1405,7 @@ function applyBaitTypeUI(){
   updatePresentationOptions();
   updateBaitHelperContext();
   updateSheetSelectTriggers();
+  $('baitType').dataset.lastType=type;
 }
 
 function updateFlySuggestions(query){
@@ -1419,6 +1436,7 @@ function applyFly(item){
   if(item.primary?.length) $('mainColor').value=item.primary[0];
   if(item.secondary?.length) $('additionalColor').value=item.secondary[0];
   refreshFlySizeOptions();
+  if(item.sizes?.length) $('baitSize').value=String(item.sizes[0]);
   setBaitHelper(`${item.notes}. Suggested colors: ${[...(item.primary||[]), ...(item.secondary||[])].join(', ')}.`);
 }
 
