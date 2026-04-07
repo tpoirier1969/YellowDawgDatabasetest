@@ -587,3 +587,14 @@ input[type='date']{max-width:100%;min-width:0;overflow:hidden;}
 .trip-date-row label{min-width:0;}
 #mapSearchInput{scroll-margin-bottom:180px;}
 body, .sheet, .picker-options{-webkit-overflow-scrolling:touch;}
+
+
+/* v10.39.8 add-log stability and fly-layout pass */
+.water-name-type-row,.water-name-type-row .track-fill{align-items:end;}
+#flyIdentityRow.hidden,#flySizeColorRow.hidden{display:none !important;}
+#flySizeColorRow{grid-template-columns:repeat(3,minmax(0,1fr));}
+#flyIdentityRow #nameWrap.hidden{display:none !important;}
+@media (max-width:680px){#flySizeColorRow{grid-template-columns:1fr 1fr;} .water-name-type-row{grid-template-columns:1fr 1fr;}}
+@media (max-width:420px){#flySizeColorRow,.water-name-type-row{grid-template-columns:1fr;}}
+#logForm select.native-select-hidden{display:none !important;}
+#sheetPicker{display:none !important;}

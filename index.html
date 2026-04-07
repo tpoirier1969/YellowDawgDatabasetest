@@ -72,10 +72,8 @@
           </select>
         </label>
       </div>
-      <label class="track-fill">Body of Water<input type="text" id="waterName" name="waterName" list="waterNameSuggestionsList"><datalist id="waterNameSuggestionsList"></datalist></label>
-      <label id="waypointFieldWrap" class="hidden">Waypoint<input type="text" id="waypointName" name="waypointName" placeholder="Optional"></label>
-      <input type="hidden" id="sharePreview" name="sharePreview" value="">
-      <div class="form-grid keep-two compact-grid water-type-row">
+      <div class="form-grid keep-two compact-grid water-name-type-row">
+        <label class="track-fill">Body of Water<input type="text" id="waterName" name="waterName" list="waterNameSuggestionsList"><datalist id="waterNameSuggestionsList"></datalist></label>
         <label class="track-fill">Water Type
           <select id="waterType" name="waterType">
             <option value="">Choose one</option>
@@ -87,6 +85,8 @@
           </select>
         </label>
       </div>
+      <label id="waypointFieldWrap" class="hidden">Waypoint<input type="text" id="waypointName" name="waypointName" placeholder="Optional"></label>
+      <input type="hidden" id="sharePreview" name="sharePreview" value="">
     </div>
 
     <div class="divider"></div>
@@ -166,7 +166,7 @@
       <div class="form-grid keep-two compact-grid">
         <label class="track-fill">Fishing Type
           <select id="baitType" name="baitType">
-            <option value="">Choose one</option><option value="Fly">Fly</option><option value="Live Bait">Bait</option><option value="Lure">Lures</option><option value="Ice">Ice</option>
+            <option value="">Choose one</option><option value="Fly">Fly Fishing</option><option value="Lure">Lure Fishing</option><option value="Live Bait">Natural Bait</option><option value="Ice">Ice Fishing</option>
           </select>
         </label>
         <label id="subtypeWrap" class="hidden">Choice
@@ -174,7 +174,7 @@
         </label>
       </div>
 
-      <div class="form-grid keep-two compact-grid">
+      <div id="flyIdentityRow" class="form-grid keep-two compact-grid">
         <div id="nameWrap" class="typeahead-wrap field-no-margin hidden">
           <label id="nameLabel">Name
             <input type="text" id="baitName" name="baitName" placeholder="">
@@ -183,6 +183,19 @@
         </div>
         <label id="sizeWrap">Fly Size
           <select id="baitSize" name="baitSize"><option value="">Choose one</option></select>
+        </label>
+      </div>
+
+      <div id="flySizeColorRow" class="form-grid keep-three compact-grid hidden">
+        <label id="mainColorWrap">Fly Color
+          <select id="mainColor" name="mainColor">
+            <option value="">Choose one</option>
+          </select>
+        </label>
+        <label id="additionalColorWrap">Additional Color
+          <select id="additionalColor" name="additionalColor">
+            <option value="">None</option>
+          </select>
         </label>
       </div>
 
@@ -208,18 +221,6 @@
         <div class="helper-box inline-helper">Use exact depth here for Great Lakes trolling or deep-water work.</div>
       </div>
 
-      <div class="form-grid keep-two compact-grid" id="lureColorGrid">
-        <label id="mainColorWrap">Lure Color
-          <select id="mainColor" name="mainColor">
-            <option value="">Choose one</option>
-          </select>
-        </label>
-        <label id="additionalColorWrap">Additional Lure Color
-          <select id="additionalColor" name="additionalColor">
-            <option value="">None</option>
-          </select>
-        </label>
-      </div>
 
       <div id="baitHelper" class="helper-box hidden"></div>
 

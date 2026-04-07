@@ -130,3 +130,7 @@ alter table public.fishing_catch_logs add column if not exists current_speed tex
 
 alter table public.fishing_catch_logs add column if not exists presentation_depth_ft numeric;
 alter table public.fishing_catch_logs add column if not exists bottom_type text;
+
+
+-- Helps PostgREST notice the column sooner after ALTER TABLE changes.
+NOTIFY pgrst, 'reload schema';

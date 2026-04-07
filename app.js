@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.7';
+const APP_VERSION='v10.39.8';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -35,8 +35,8 @@ const LAKE_BOTTOM_TYPES=['Sand','Mud','Silt','Gravel','Rock','Boulder','Clay','M
 const RIVER_STRUCTURE_TYPES=['Pool','Riffle','Run','Seam','Undercut Bank','Logjam','Boulder','Current Break','Eddy','Tailout','Bend','Cut Bank','Inside Turn','Pocket Water','Tributary Mouth','Bridge Area'];
 const RIVER_BOTTOM_TYPES=['Sand','Mud','Silt','Gravel','Cobble','Boulder','Bedrock','Clay','Mixed'];
 const PRESENTATION_OPTIONS={
-  'Fly':{styles:['Dead Drift','Swing','Strip','Skate','Nymph Under Indicator','Tight Line / Euro','Dry Fly','Popper'],depths:['Surface','Just Under Surface','Mid-Column','Near Bottom','Bottom'],speeds:['Dead Drift','Slow','Medium','Fast']},
-  'Lure':{styles:['Steady Retrieve','Twitch','Jig','Rip','Burn','Trolling','Stop-and-Go','Wake'],depths:['Surface','Shallow','Mid-Column','Deep','Bottom'],speeds:['Slow','Medium','Fast','Erratic']},
+  'Fly':{styles:['Dead Drift','Swing','Strip','Skate','Nymph Under Indicator','Tight Line / Euro','Popper'],depths:['Surface','Just Under Surface','Mid-Column','Near Bottom','Bottom'],speeds:['Dead Drift','Slow','Medium','Fast']},
+  'Lure':{styles:['Cast / Retrieve','Steady Retrieve','Twitch','Jig','Rip','Burn','Trolling','Stop-and-Go','Wake'],depths:['Surface','Shallow','Mid-Column','Deep','Bottom'],speeds:['Slow','Medium','Fast','Erratic']},
   'Live Bait':{styles:['Under Bobber','Slip Float','Bottom Rig','Drift','Free Line','Tip-Up'],depths:['Surface','Shallow','Mid-Column','Near Bottom','Bottom'],speeds:['Static','Slow Drift','Controlled Drift']},
   'Ice':{styles:['Tip-Up','Jigging','Deadstick','Set Line','Spearing / Hand Gaff','Lift and Drop','Pound Bottom','Hover','Swim / Glide'],depths:['Just Under Ice','Upper Column','Mid-Column','Near Bottom','Bottom'],speeds:['Still','Subtle','Moderate','Aggressive']}
 };
@@ -784,7 +784,15 @@ async function syncCloud({quiet=false}={}){
   try{
     const rows=(await Promise.all(normalizeEntryArray(state.entries).map(entryToCloudRow))).filter(Boolean);
     if(rows.length){
-      const {error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(rows, {onConflict:'id'});
+      let {error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(rows, {onConflict:'id'});
+      if(pushError && /bottom[_ ]type.*schema cache/i.test(String(pushError.message||''))){
+        const fallbackRows=rows.map(({bottom_type, ...rest})=>rest);
+        ({error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(fallbackRows, {onConflict:'id'}));
+        if(!pushError){
+          state.cloud.lastError='';
+          setStatus('Cloud sync worked, but your database schema cache is stale for bottom_type. Run the SQL update when convenient.', 5200);
+        }
+      }
       if(pushError) throw pushError;
     }
     const {data,error}=await state.cloud.client.from(state.cloud.table).select('*').eq('app_id', state.cloud.appId).order('created_at', {ascending:false});
@@ -802,8 +810,9 @@ async function syncCloud({quiet=false}={}){
     state.cloud.ready=false;
     updateCloudUi();
     if(!quiet){
-      alert(`Cloud sync failed: ${state.cloud.lastError}`);
-      setStatus(`Cloud sync failed: ${state.cloud.lastError}`, 4200);
+      const prettyError=/bottom[_ ]type.*schema cache/i.test(String(state.cloud.lastError||'')) ? 'Cloud sync failed because Supabase still does not see the bottom_type column in its schema cache. Run the updated SQL or refresh the schema cache in Supabase.' : state.cloud.lastError;
+      alert(`Cloud sync failed: ${prettyError}`);
+      setStatus(`Cloud sync failed: ${prettyError}`, 5200);
     }
     return false;
   }finally{
@@ -841,7 +850,7 @@ function getSubtypeFieldLabel(type=''){
 
 function getBaitNameFieldLabel(type=''){
   switch(String(type||'')){
-    case 'Fly': return 'Fly Pattern';
+    case 'Fly': return 'Fly Name';
     case 'Lure': return 'Lure Name';
     default: return 'Name';
   }
@@ -1165,10 +1174,14 @@ function refreshFlySizeOptions(){
   const subtype=$('baitSubtype').value;
   const exact=findExactFly($('baitName').value, subtype);
   let sizes=[];
-  if(exact){
-    sizes=exact.sizes||[];
+  if(exact && Array.isArray(exact.sizes) && exact.sizes.length){
+    sizes=exact.sizes;
+  }else if(subtype==='Streamer'){
+    sizes=Array.from({length:15}, (_,idx)=>String(idx+2));
+  }else if(subtype){
+    sizes=Array.from({length:19}, (_,idx)=>String(idx+2));
   }else{
-    const pool=subtype ? getFlyReference().filter(item=>item.category===subtype) : getFlyReference();
+    const pool=getFlyReference();
     sizes=[...new Set(pool.flatMap(item=>item.sizes||[]))].sort((a,b)=>Number(a)-Number(b));
   }
   setOptions($('baitSize'), sizes, sizes.length ? 'Choose fly size' : 'No sizes loaded');
@@ -1185,14 +1198,17 @@ function applySubtypeColorDefaults(){
 }
 
 function updateColorFieldVisibility(){
-  const grid=$('lureColorGrid');
-  if(grid) grid.classList.remove('hidden');
-  ['mainColorWrap','additionalColorWrap'].forEach(id=>{ const el=$(id); if(el) el.classList.remove('hidden'); });
-  const mainLabel=$('mainColorWrap');
-  const addLabel=$('additionalColorWrap');
-  if(mainLabel) setLabelText(mainLabel, 'Color');
-  if(addLabel) setLabelText(addLabel, 'Accent Color');
-  $('mainColor').required=true;
+  const type=$('baitType').value;
+  const showFlyColors=type==='Fly';
+  const showLureColors=type==='Lure';
+  const mainWrap=$('mainColorWrap');
+  const additionalWrap=$('additionalColorWrap');
+  const flyRow=$('flySizeColorRow');
+  if(mainWrap) setLabelText(mainWrap, showFlyColors ? 'Fly Color' : 'Lure Color');
+  if(additionalWrap) setLabelText(additionalWrap, showFlyColors ? 'Additional Color' : 'Additional Lure Color');
+  if(flyRow) flyRow.classList.toggle('hidden', !showFlyColors);
+  if(mainWrap) mainWrap.classList.toggle('hidden', !(showFlyColors || showLureColors));
+  if(additionalWrap) additionalWrap.classList.toggle('hidden', !(showFlyColors || showLureColors));
 }
 
 function getTimeOfDayForNow(dateObj=new Date()){
@@ -1321,7 +1337,7 @@ function applyBaitTypeUI(){
   if(type==='Fly'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.remove('hidden');
-    $('nameWrap').classList.add('hidden');
+    $('nameWrap').classList.remove('hidden');
     setOptions(baitSubtype, FLY_TYPES, 'Choose fly type');
     setLabelText($('subtypeWrap'), subtypeLabel);
     setLabelText($('nameLabel'), baitNameLabel);
@@ -1329,7 +1345,7 @@ function applyBaitTypeUI(){
     baitSize.disabled=false;
     baitSize.required=true;
     baitName.required=false;
-    baitName.placeholder='';
+    baitName.placeholder='Start typing a fly name';
     refreshFlySizeOptions();
   } else if(type==='Lure'){
     $('subtypeWrap').classList.remove('hidden');
@@ -1366,6 +1382,8 @@ function applyBaitTypeUI(){
     baitName.placeholder='';
     baitName.disabled=true;
   }
+  $('flyIdentityRow')?.classList.toggle('hidden', type!=='Fly');
+  $('flySizeColorRow')?.classList.toggle('hidden', type!=='Fly');
   updateColorFieldVisibility();
   updateHatchesVisibility();
   updatePresentationOptions();
@@ -1815,7 +1833,7 @@ function cleanupSheetSelectButton(select){
 }
 
 function shouldUseCustomPicker(select){
-  return !!select && !!select.closest('#logForm, #anglerSheet');
+  return false;
 }
 
 function updateSheetSelectTriggers(){
