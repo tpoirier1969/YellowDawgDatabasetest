@@ -32,3 +32,6 @@ Notes
 - picker logic rebuilt toward a centered wheel-style anchored popover for Add Log and Options fields
 - required-field validation now follows the new required list and jumps to the missing field
 - saved filters persist between normal view and Map Only view on this device
+
+
+10.39.11 cloud sync fix: app now falls back if Supabase schema cache is missing presentation_depth_ft, similar to bottom_type.

@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.10';
+const APP_VERSION='v10.39.11';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -208,7 +208,7 @@ const state={
   _lastMapPickAt:0,
   filters:loadSavedFilters(),
   ui:loadUiOptions(),
-  cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true,omitBottomType:false}
+  cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true,omitBottomType:false,omitPresentationDepthFt:false}
 };
 
 const $=id=>document.getElementById(id);
@@ -801,15 +801,28 @@ async function syncCloud({quiet=false}={}){
   try{
     let rows=(await Promise.all(normalizeEntryArray(state.entries).map(entryToCloudRow))).filter(Boolean);
     if(state.cloud.omitBottomType) rows=rows.map(({bottom_type, ...rest})=>rest);
+    if(state.cloud.omitPresentationDepthFt) rows=rows.map(({presentation_depth_ft, ...rest})=>rest);
     if(rows.length){
       let {error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(rows, {onConflict:'id'});
-      if(pushError && /bottom\s*_?type.*schema cache|schema cache.*bottom\s*_?type/i.test(String(pushError.message||''))){
-        const fallbackRows=rows.map(({bottom_type, ...rest})=>rest);
-        ({error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(fallbackRows, {onConflict:'id'}));
-        if(!pushError){
-          state.cloud.omitBottomType=true;
-          state.cloud.lastError='';
-          setStatus('Cloud sync worked, but Supabase is still blind to bottom_type in schema cache. This build is omitting that field for now.', 5600);
+      if(pushError){
+        const pushMessage=String(pushError.message||'');
+        if(/bottom\s*_?type.*schema cache|schema cache.*bottom\s*_?type/i.test(pushMessage)){
+          const fallbackRows=rows.map(({bottom_type, ...rest})=>rest);
+          ({error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(fallbackRows, {onConflict:'id'}));
+          if(!pushError){
+            state.cloud.omitBottomType=true;
+            state.cloud.lastError='';
+            setStatus('Cloud sync worked, but Supabase is still blind to bottom_type in schema cache. This build is omitting that field for now.', 5600);
+          }
+        }
+        if(pushError && /presentation_depth_ft.*schema cache|schema cache.*presentation_depth_ft/i.test(String(pushError.message||''))){
+          const fallbackRows=rows.map(({presentation_depth_ft, ...rest})=>rest);
+          ({error:pushError}=await state.cloud.client.from(state.cloud.table).upsert(fallbackRows, {onConflict:'id'}));
+          if(!pushError){
+            state.cloud.omitPresentationDepthFt=true;
+            state.cloud.lastError='';
+            setStatus('Cloud sync worked, but Supabase is still blind to presentation_depth_ft in schema cache. This build is omitting that field for now.', 5600);
+          }
         }
       }
       if(pushError) throw pushError;
@@ -829,7 +842,12 @@ async function syncCloud({quiet=false}={}){
     state.cloud.ready=false;
     updateCloudUi();
     if(!quiet){
-      const prettyError=/bottom\s*_?type.*schema cache|schema cache.*bottom\s*_?type/i.test(String(state.cloud.lastError||'')) ? 'Cloud sync failed because Supabase still does not see the bottom_type column in its schema cache. This build will omit that field on the next successful sync, but your database still needs the updated SQL or a schema refresh.' : state.cloud.lastError;
+      const lastErrorText=String(state.cloud.lastError||'');
+      const prettyError=/bottom\s*_?type.*schema cache|schema cache.*bottom\s*_?type/i.test(lastErrorText)
+        ? 'Cloud sync failed because Supabase still does not see the bottom_type column in its schema cache. This build will omit that field on the next successful sync, but your database still needs the updated SQL or a schema refresh.'
+        : /presentation_depth_ft.*schema cache|schema cache.*presentation_depth_ft/i.test(lastErrorText)
+          ? 'Cloud sync failed because Supabase still does not see the presentation_depth_ft column in its schema cache. This build will omit that field on the next successful sync, but your database still needs the updated SQL or a schema refresh.'
+          : state.cloud.lastError;
       alert(`Cloud sync failed: ${prettyError}`);
       setStatus(`Cloud sync failed: ${prettyError}`, 5200);
     }
