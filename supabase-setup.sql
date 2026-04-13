@@ -26,20 +26,13 @@ create table if not exists public.fishing_catch_logs (
   quantity integer,
   air_temp numeric,
   water_temp numeric,
-  water_depth_ft numeric,
-  wind text,
-  wind_direction text,
   sky_condition text,
   water_condition text,
   water_clarity text,
-  surface_condition text,
-  current_speed text,
   depth_zone text,
   retrieve_speed text,
   presentation_style text,
-  presentation_depth_ft numeric,
   structure_type text,
-  bottom_type text,
   hatches text,
   notes text,
   location_source text,
@@ -120,17 +113,3 @@ alter table public.fishing_catch_logs add column if not exists share_angler_name
 
 alter table public.fishing_catch_logs add column if not exists exact_marker_lat double precision;
 alter table public.fishing_catch_logs add column if not exists exact_marker_lng double precision;
-
-alter table public.fishing_catch_logs add column if not exists water_depth_ft numeric;
-alter table public.fishing_catch_logs add column if not exists wind text;
-alter table public.fishing_catch_logs add column if not exists wind_direction text;
-
-alter table public.fishing_catch_logs add column if not exists surface_condition text;
-alter table public.fishing_catch_logs add column if not exists current_speed text;
-
-alter table public.fishing_catch_logs add column if not exists presentation_depth_ft numeric;
-alter table public.fishing_catch_logs add column if not exists bottom_type text;
-
-
--- Helps PostgREST notice the column sooner after ALTER TABLE changes.
-NOTIFY pgrst, 'reload schema';
