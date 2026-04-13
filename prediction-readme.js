@@ -15,11 +15,9 @@ window.FishingPredictionReadme=(function(){
     <p>Once the model layer is wired in, you will be able to enter the day, time, water type and conditions, wind and weather, plus the kind of fishing you plan to do. The system will work through your saved history and suggest your best options for catching fish based on the patterns it finds.</p>
     <p>That should push this past the usual fishing log or map-pin app and toward something that can actually help you decide how to fish before you make the first cast.</p>
   `;
-
   function apply(){
     const target=document.getElementById('predictReadmeCopy');
     if(target) target.innerHTML=html;
   }
-
   return {apply, html};
 })();
