@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.11';
+const APP_VERSION='v10.39.12';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -975,7 +975,7 @@ function setMapPickVisuals(isActive){
 }
 
 function disarmMapPick(){
-  return window.MapPickController?.disarm?.();
+  try{ return window.MapPickController?.disarm?.(); }catch(_e){ return null; }
 }
 
 function cancelAddMode(message=''){
@@ -1015,7 +1015,7 @@ function initializeMapPickHandlers(){
 }
 
 function beginPickOnMap(){
-  return window.MapPickController?.begin?.();
+  try{ return window.MapPickController?.begin?.(); }catch(error){ setStatus('Pick on Map failed to arm.', 3200); console.error('Pick on Map arm failed', error); return null; }
 }
 
 

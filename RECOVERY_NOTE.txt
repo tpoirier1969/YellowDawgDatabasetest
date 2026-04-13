@@ -1,1 +1,4 @@
 This reconstructed package intentionally omits supabase-config.js so your live credentials are not overwritten. It also omits icon-192.png, apple-touch-icon.png, and icon-512.png because you said those graphic files are already in place.
+
+
+v10.39.12 hotfix: hardened action buttons against MapPickController init failures.

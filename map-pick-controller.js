@@ -4,12 +4,12 @@ window.MapPickController=(function(){
   let initialized=false;
 
   function requireDeps(){
-    if(!deps) throw new Error('MapPickController not initialized');
-    return deps;
+    return deps || null;
   }
 
   function setVisuals(isActive){
-    const {map}=requireDeps();
+    const ctx=requireDeps();
+    const map=ctx?.map;
     const mapEl=map?.getContainer?.() || document.getElementById('map');
     if(!mapEl) return;
     mapEl.style.cursor=isActive ? 'crosshair' : '';
@@ -17,7 +17,9 @@ window.MapPickController=(function(){
   }
 
   function pointFromClientEvent(event){
-    const {map, L}=requireDeps();
+    const ctx=requireDeps();
+    const map=ctx?.map; const L=ctx?.L;
+    if(!map || !L) return null;
     const touch=event.changedTouches && event.changedTouches[0] ? event.changedTouches[0] : null;
     const clientX=touch ? touch.clientX : event.clientX;
     const clientY=touch ? touch.clientY : event.clientY;
@@ -28,7 +30,9 @@ window.MapPickController=(function(){
   }
 
   function ensureOverlay(){
-    const {state}=requireDeps();
+    const ctx=requireDeps();
+    const state=ctx?.state;
+    if(!state) return document.getElementById('mapPickOverlay') || null;
     if(state.mapPickOverlay && document.body.contains(state.mapPickOverlay)) return state.mapPickOverlay;
     const overlay=document.createElement('div');
     overlay.id='mapPickOverlay';
@@ -60,7 +64,9 @@ window.MapPickController=(function(){
   }
 
   function detach(){
-    const {state, map}=requireDeps();
+    const ctx=requireDeps();
+    const state=ctx?.state; const map=ctx?.map;
+    if(!state) return;
     const overlay=state.mapPickOverlay;
     if(overlay && state._mapPickOverlayHandler){
       ['click','pointerup','touchend','mouseup'].forEach(type=>overlay.removeEventListener(type, state._mapPickOverlayHandler, true));
@@ -74,14 +80,17 @@ window.MapPickController=(function(){
   }
 
   function disarm(){
-    const {state}=requireDeps();
+    const ctx=requireDeps();
+    const state=ctx?.state;
+    if(!state) return;
     state.pickOnMapArmed=false;
     detach();
     setVisuals(false);
   }
 
   async function finish(lat,lng){
-    const {state, setStatus, setDraftMarker, closeAllSheets, openSheet, $, map, updateFieldFillStates, setWaterLookupStatusText, detectNearbyWater}=requireDeps();
+    const ctx=requireDeps(); if(!ctx) return;
+    const {state, setStatus, setDraftMarker, closeAllSheets, openSheet, $, map, updateFieldFillStates, setWaterLookupStatusText, detectNearbyWater}=ctx;
     if(!state.pickOnMapArmed || !state.addMode) return;
     if(!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))){
       setStatus('Map pick failed. Tap the map again.', 3200);
@@ -98,7 +107,8 @@ window.MapPickController=(function(){
   }
 
   function arm(){
-    const {state, setStatus, map}=requireDeps();
+    const ctx=requireDeps(); if(!ctx) return;
+    const {state, setStatus, map}=ctx;
     detach();
     const overlay=ensureOverlay();
     state._mapPickOverlayHandler=async event=>{
@@ -130,7 +140,8 @@ window.MapPickController=(function(){
   }
 
   function begin(){
-    const {state, syncAddLogButton, closeSheet, $, setStatus, setWaterLookupStatusText, map}=requireDeps();
+    const ctx=requireDeps(); if(!ctx) return;
+    const {state, syncAddLogButton, closeSheet, $, setStatus, setWaterLookupStatusText, map}=ctx;
     state.pendingLocationRequestId+=1;
     state.addMode=true;
     state.pickOnMapArmed=true;
@@ -149,7 +160,8 @@ window.MapPickController=(function(){
   }
 
   function initialize(){
-    const {state}=requireDeps();
+    const ctx=requireDeps(); if(!ctx) return;
+    const {state}=ctx;
     if(initialized) return;
     initialized=true;
     window.addEventListener('resize', ()=>{ if(state.pickOnMapArmed) showOverlay(); });
