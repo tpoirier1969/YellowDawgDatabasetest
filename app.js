@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.15';
+const APP_VERSION='v10.39.16';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';

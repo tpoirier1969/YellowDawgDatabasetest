@@ -95,7 +95,7 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 
 /* v10.39.15 dock and review filter fixes */
 
-#mapUiToggleBar{position:fixed;z-index:1000;left:12px;right:12px;bottom:var(--safe-bottom);display:flex;justify-content:center;pointer-events:none;}
+#mapUiToggleBar{position:fixed;z-index:1000;right:12px;top:108px;left:auto;bottom:auto;display:flex;justify-content:flex-end;pointer-events:none;}
 #showActionDockBtn{pointer-events:auto;}
 body.action-dock-hidden #floatingActions{display:none;}
 body.action-dock-hidden #mapSearchPanel{display:none !important;}
@@ -105,6 +105,7 @@ body.action-dock-hidden #showActionDockBtn{display:inline-flex !important;}
 .reviewFilterGrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;align-items:end;}
 .reviewFilterGrid label{margin:0;}
 @media (max-width:720px){
+  #mapUiToggleBar{left:12px;right:12px;top:auto;bottom:var(--safe-bottom);justify-content:center;}
   #floatingActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;left:12px;right:12px;top:auto;bottom:var(--safe-bottom);} 
   #floatingActions .pill{width:100%;min-width:0;}
   #statusBadge{bottom:calc(var(--safe-bottom) + 214px);} 
