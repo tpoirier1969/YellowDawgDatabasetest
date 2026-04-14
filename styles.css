@@ -91,3 +91,25 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 #map.map-pick-armed, #map.map-pick-armed * { touch-action: none; }
 .map-pick-overlay{position:fixed;z-index:900;display:none;background:transparent;touch-action:none;cursor:crosshair;}
 .map-pick-overlay.visible{display:block;pointer-events:auto;}
+
+
+/* v10.39.15 dock and review filter fixes */
+
+#mapUiToggleBar{position:fixed;z-index:1000;left:12px;right:12px;bottom:var(--safe-bottom);display:flex;justify-content:center;pointer-events:none;}
+#showActionDockBtn{pointer-events:auto;}
+body.action-dock-hidden #floatingActions{display:none;}
+body.action-dock-hidden #mapSearchPanel{display:none !important;}
+body.action-dock-hidden #showActionDockBtn{display:inline-flex !important;}
+.reviewFiltersToggle{display:none;}
+.reviewFilterBar{margin-bottom:12px;}
+.reviewFilterGrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;align-items:end;}
+.reviewFilterGrid label{margin:0;}
+@media (max-width:720px){
+  #floatingActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;left:12px;right:12px;top:auto;bottom:var(--safe-bottom);} 
+  #floatingActions .pill{width:100%;min-width:0;}
+  #statusBadge{bottom:calc(var(--safe-bottom) + 214px);} 
+  .reviewFiltersToggle{display:inline-flex;}
+  #reviewSheet.filters-open .reviewFilterBar{display:block;}
+  .reviewFilterBar{display:none;position:fixed;left:12px;right:12px;top:12vh;bottom:12vh;z-index:1300;overflow:auto;padding:14px;border-radius:18px;background:rgba(16,31,27,.98);border:1px solid var(--border);box-shadow:0 18px 48px rgba(0,0,0,.45);} 
+  .reviewFilterGrid{grid-template-columns:1fr;}
+}

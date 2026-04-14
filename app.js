@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.13';
+const APP_VERSION='v10.39.15';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -25,6 +25,18 @@ const FLY_TYPES=FishingVocab.FLY_TYPES || ['Dry','Nymph','Streamer','Emerger','W
 const LURE_TYPES=FishingVocab.LURE_TYPES || ['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'];
 const LIVE_BAIT_TYPES=FishingVocab.LIVE_BAIT_TYPES || ['Minnow','Crawler','Worm','Cut Bait','Spawn','Waxworm / Wiggler','Leech','Grasshopper','Other'];
 const ICE_BAIT_TYPES=['Minnow','Shiner','Sucker Minnow','Waxworm / Euro Larva','Mealworm','Spawn','Cut Bait','Soft Plastic','Artificial Jig / Spoon','Other'];
+
+const LURE_SIZE_OPTIONS={
+  'Spoon':['1/16 oz','1/8 oz','1/4 oz','3/8 oz','1/2 oz','3/4 oz','1 oz','1.5 in','2 in','2.5 in','3 in','3.5 in','4 in','5 in'],
+  'Plug / Crankbait':['1.5 in','2 in','2.5 in','3 in','3.5 in','4 in','4.5 in','5 in','Floating','Suspending','Sinking'],
+  'Spinner':['#0','#1','#2','#3','#4','#5','1/8 oz','1/4 oz','3/8 oz','1/2 oz'],
+  'Jerkbait':['2.5 in','3 in','3.5 in','4 in','4.5 in','5 in','Suspending','Floating'],
+  'Soft Plastic':['2 in','3 in','4 in','5 in','6 in','7 in'],
+  'Jig':['1/32 oz','1/16 oz','1/8 oz','1/4 oz','3/8 oz','1/2 oz','3/4 oz','1 oz'],
+  'Swimbait':['2.8 in','3.3 in','3.8 in','4.3 in','4.8 in','5.8 in','1/4 oz','3/8 oz','1/2 oz','3/4 oz'],
+  'Topwater':['2 in','2.5 in','3 in','3.5 in','4 in','4.5 in','5 in'],
+  'Other':['Small','Medium','Large']
+};
 const SKY_OPTIONS=['Clear','Partly Cloudy','Cloudy','Rain','Snow','Night'];
 const LAKE_WATER_LEVEL_OPTIONS=['Low','Normal','High'];
 const RIVER_WATER_LEVEL_OPTIONS=['Low','Normal','High'];
@@ -248,15 +260,10 @@ function setColorOptions(select, {includeBlank=true, blankLabel='Choose one'}={}
 }
 
 function populateColorOptions(){
-  const mainValue=$('mainColor').value;
-  const addValue=$('additionalColor').value;
-  const filterValue=$('filterColor').value;
-  setColorOptions($('mainColor'), {includeBlank:true, blankLabel:'Choose one'});
-  setColorOptions($('additionalColor'), {includeBlank:true, blankLabel:'None'});
-  setColorOptions($('filterColor'), {includeBlank:true, blankLabel:'All'});
-  if(mainValue && COLOR_OPTIONS.includes(mainValue)) $('mainColor').value=mainValue;
-  if(addValue && COLOR_OPTIONS.includes(addValue)) $('additionalColor').value=addValue;
-  if(filterValue && COLOR_OPTIONS.includes(filterValue)) $('filterColor').value=filterValue;
+  const ids=[['mainColor','Choose one'],['additionalColor','None'],['lureMainColor','Choose one'],['lureAdditionalColor','None'],['filterColor','All']];
+  const prior=Object.fromEntries(ids.map(([id])=>[id,$(id)?$(id).value:'']));
+  ids.forEach(([id,label])=>{ if($(id)) setColorOptions($(id), {includeBlank:true, blankLabel:label}); });
+  Object.entries(prior).forEach(([id,value])=>{ if($(id) && value && COLOR_OPTIONS.includes(value)) $(id).value=value; });
 }
 
 function isValidCoordinatePair(lat,lng){
@@ -879,7 +886,7 @@ function getSubtypeFieldLabel(type=''){
   switch(String(type||'')){
     case 'Fly': return 'Fly Type';
     case 'Lure': return 'Lure Type';
-    case 'Live Bait': return 'Bait Choice';
+    case 'Live Bait': return 'Bait Type';
     case 'Ice': return 'Ice Bait';
     default: return 'Choice';
   }
@@ -889,6 +896,8 @@ function getBaitNameFieldLabel(type=''){
   switch(String(type||'')){
     case 'Fly': return 'Fly Name';
     case 'Lure': return 'Lure Name';
+    case 'Live Bait': return 'Bait Note';
+    case 'Ice': return 'Ice Bait / Lure Name';
     default: return 'Name';
   }
 }
@@ -995,7 +1004,7 @@ function beginAddLog(){
   applyLogDateTimeDefaults();
   updateConditionFieldsForWaterType();
   openSheet($('logSheet'));
-  requestAnimationFrame(()=>{ map.invalidateSize(); updateFieldFillStates(); });
+  requestAnimationFrame(()=>{ map.invalidateSize(); forcePresentationControlsNative(); updateFieldFillStates(); });
   if(state.currentDraftMarker){
     const ll=state.currentDraftMarker.getLatLng();
     updateLocationSummary(ll.lat, ll.lng, state.currentDraftMeta.accuracy, state.currentDraftMeta.source);
@@ -1104,7 +1113,7 @@ async function useCurrentLocation({auto=false, confirmBeforeOpen=false}={}){
         return;
       }
       openSheet($('logSheet'));
-  requestAnimationFrame(()=>{ map.invalidateSize(); updateFieldFillStates(); });
+  requestAnimationFrame(()=>{ map.invalidateSize(); forcePresentationControlsNative(); updateFieldFillStates(); });
       closeSheet($('reviewSheet'));
       closeSheet($('filterSheet'));
       setWaterLookupStatusText(`Using your device location${accuracyText}. Checking nearby water...`);
@@ -1126,7 +1135,7 @@ async function useCurrentLocation({auto=false, confirmBeforeOpen=false}={}){
     setLocationControlsDisabled(false);
     if(auto && confirmBeforeOpen){
       openSheet($('logSheet'));
-  requestAnimationFrame(()=>{ map.invalidateSize(); updateFieldFillStates(); });
+  requestAnimationFrame(()=>{ map.invalidateSize(); forcePresentationControlsNative(); updateFieldFillStates(); });
       setStatus(`Location failed: ${message}. Pick a spot on the map.`, 4200);
       return;
     }
@@ -1226,28 +1235,44 @@ function refreshFlySizeOptions(){
   if(previous && sizes.includes(previous)) $('baitSize').value=previous;
 }
 
+
+function populateLureSizeOptions(){
+  const select=$('lureSize');
+  if(!select) return;
+  const subtype=$('baitSubtype')?.value || 'Other';
+  const previous=select.value;
+  const values=LURE_SIZE_OPTIONS[subtype] || LURE_SIZE_OPTIONS.Other;
+  setOptions(select, values, 'Choose one');
+  if(previous && values.includes(previous)) select.value=previous;
+}
+
 function applySubtypeColorDefaults(){
   const type=$('baitType').value;
   const subtype=$('baitSubtype').value;
   if(type==='Fly' || !subtype) return;
   const defaults=BAIT_COLOR_DEFAULTS[type]?.[subtype];
   if(!defaults) return;
-  $('mainColor').value=defaults.main || '';
-  $('additionalColor').value=defaults.additional || '';
+  if(type==='Lure'){ if($('lureMainColor')) $('lureMainColor').value=defaults.main || ''; if($('lureAdditionalColor')) $('lureAdditionalColor').value=defaults.additional || ''; } else { $('mainColor').value=defaults.main || ''; $('additionalColor').value=defaults.additional || ''; }
 }
+
 
 function updateColorFieldVisibility(){
   const type=$('baitType').value;
   const showFlyColors=type==='Fly';
   const showLureColors=type==='Lure';
+  const flyRow=$('flySizeColorRow');
+  const lureRow=$('lureDetailsRow');
   const mainWrap=$('mainColorWrap');
   const additionalWrap=$('additionalColorWrap');
-  const flyRow=$('flySizeColorRow');
-  if(mainWrap) setLabelText(mainWrap, showFlyColors ? 'Fly Color' : 'Lure Color');
-  if(additionalWrap) setLabelText(additionalWrap, showFlyColors ? 'Additional Color' : 'Additional Lure Color');
+  if(mainWrap) setLabelText(mainWrap, 'Fly Color');
+  if(additionalWrap) setLabelText(additionalWrap, 'Additional Color');
   if(flyRow) flyRow.classList.toggle('hidden', !showFlyColors);
-  if(mainWrap) mainWrap.classList.toggle('hidden', !(showFlyColors || showLureColors));
-  if(additionalWrap) additionalWrap.classList.toggle('hidden', !(showFlyColors || showLureColors));
+  if(lureRow) lureRow.classList.toggle('hidden', !showLureColors);
+  if(mainWrap) mainWrap.classList.toggle('hidden', !showFlyColors);
+  if(additionalWrap) additionalWrap.classList.toggle('hidden', !showFlyColors);
+  if($('lureSizeWrap')) $('lureSizeWrap').classList.toggle('hidden', !showLureColors);
+  if($('lureColorWrap')) $('lureColorWrap').classList.toggle('hidden', !showLureColors);
+  if($('lureAdditionalColorWrap')) $('lureAdditionalColorWrap').classList.toggle('hidden', !showLureColors);
 }
 
 function getTimeOfDayForNow(dateObj=new Date()){
@@ -1329,6 +1354,22 @@ function updatePresentationOptions(){
   updateFieldFillStates();
 }
 
+
+function forcePresentationControlsNative(){
+  const type=normalizeFishingTypeKey($('baitType')?.value || '');
+  const ids=['presentationStyle','depthZone','retrieveSpeed'];
+  ids.forEach(id=>{
+    const select=$(id);
+    if(!select) return;
+    cleanupSheetSelectButton(select);
+    select.classList.remove('native-select-hidden');
+    select.style.pointerEvents='auto';
+    select.style.opacity='1';
+    select.disabled=!type;
+    if(type) repairPresentationSelect(select);
+  });
+  updateSheetSelectTriggers();
+}
 function repairPresentationSelect(select){
   if(!select) return;
   const type=normalizeFishingTypeKey($('baitType').value || select.dataset.presentationType || '');
@@ -1432,31 +1473,43 @@ function applyBaitTypeUI(){
   } else if(type==='Lure'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
-    $('nameWrap').classList.add('hidden');
+    $('nameWrap').classList.remove('hidden');
     setOptions(baitSubtype, LURE_TYPES, 'Choose lure type');
     if(priorSubtype && LURE_TYPES.includes(priorSubtype)) baitSubtype.value=priorSubtype;
     setLabelText($('subtypeWrap'), subtypeLabel);
-    setLabelText($('nameLabel'), baitNameLabel + ' (optional)');
+    setLabelText($('nameLabel'), baitNameLabel);
     baitSubtype.required=true;
-    baitName.placeholder='';
+    baitName.disabled=false;
+    baitName.required=false;
+    baitName.placeholder='Optional brand / lure name';
+    if(priorName) baitName.value=priorName;
+    populateLureSizeOptions();
   } else if(type==='Live Bait'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
-    $('nameWrap').classList.add('hidden');
+    $('nameWrap').classList.remove('hidden');
     setOptions(baitSubtype, LIVE_BAIT_TYPES, 'Choose bait type');
     if(priorSubtype && LIVE_BAIT_TYPES.includes(priorSubtype)) baitSubtype.value=priorSubtype;
     setLabelText($('subtypeWrap'), subtypeLabel);
+    setLabelText($('nameLabel'), baitNameLabel);
     baitSubtype.required=true;
-    baitName.disabled=true;
+    baitName.disabled=false;
+    baitName.required=false;
+    baitName.placeholder='Optional details';
+    if(priorName) baitName.value=priorName;
   } else if(type==='Ice'){
     $('subtypeWrap').classList.remove('hidden');
     $('sizeWrap').classList.add('hidden');
-    $('nameWrap').classList.add('hidden');
+    $('nameWrap').classList.remove('hidden');
     setOptions(baitSubtype, ICE_BAIT_TYPES, 'Choose ice bait');
     if(priorSubtype && ICE_BAIT_TYPES.includes(priorSubtype)) baitSubtype.value=priorSubtype;
     setLabelText($('subtypeWrap'), subtypeLabel);
+    setLabelText($('nameLabel'), baitNameLabel);
     baitSubtype.required=true;
-    baitName.disabled=true;
+    baitName.disabled=false;
+    baitName.required=false;
+    baitName.placeholder='Optional details';
+    if(priorName) baitName.value=priorName;
   } else {
     $('subtypeWrap').classList.add('hidden');
     $('sizeWrap').classList.add('hidden');
@@ -1468,11 +1521,12 @@ function applyBaitTypeUI(){
     baitName.disabled=true;
     baitSubtype.value='';
   }
-  $('flyIdentityRow')?.classList.toggle('hidden', type!=='Fly');
-  $('flySizeColorRow')?.classList.toggle('hidden', type!=='Fly');
+  $('flyIdentityRow')?.classList.toggle('hidden', !['Fly','Lure','Live Bait','Ice'].includes(type));
   updateColorFieldVisibility();
+  if(type==='Lure') populateLureSizeOptions();
   updateHatchesVisibility();
   updatePresentationOptions();
+  forcePresentationControlsNative();
   updateBaitHelperContext();
   updateSheetSelectTriggers();
   $('baitType').dataset.lastType=type;
@@ -2130,9 +2184,9 @@ async function onSubmit(event){
       baitType:raw.baitType,
       baitSubtype:raw.baitSubtype,
       baitName,
-      mainColor:raw.mainColor,
-      additionalColor:raw.additionalColor,
-      baitSize:raw.baitType==='Fly' ? raw.baitSize : '',
+      mainColor:raw.baitType==='Lure' ? raw.lureMainColor : raw.mainColor,
+      additionalColor:raw.baitType==='Lure' ? raw.lureAdditionalColor : raw.additionalColor,
+      baitSize:raw.baitType==='Fly' ? raw.baitSize : (raw.baitType==='Lure' ? raw.lureSize : ''),
       species:raw.species,
       sizeInches:parseOptionalNumber(raw.sizeInches),
       weight:(raw.weight||'').trim(),
@@ -2692,8 +2746,12 @@ $('depthZone').addEventListener('change',updateFieldFillStates);
 $('retrieveSpeed').addEventListener('change',updateFieldFillStates);
 ['presentationStyle','depthZone','retrieveSpeed'].forEach(id=>{
   const select=$(id);
-  ['focus','mousedown','touchstart','click'].forEach(eventName=>{
-    select.addEventListener(eventName,()=>repairPresentationSelect(select), {passive:true});
+  if(!select) return;
+  ['focus','mousedown','touchstart','click','change'].forEach(eventName=>{
+    select.addEventListener(eventName,()=>{
+      forcePresentationControlsNative();
+      repairPresentationSelect(select);
+    }, {passive:true});
   });
 });
 $('species').addEventListener('change',updateFieldFillStates);
@@ -2732,7 +2790,7 @@ $('waterName').addEventListener('input',()=>{
   updateSheetSelectTriggers();
 });
 $('waterType').addEventListener('change',()=>{ updateConditionFieldsForWaterType(); refreshSharingSummary(); updateSheetSelectTriggers(); });
-['date','timeOfDay','waterName','wind','windDirection','waterCondition','waterClarity','surfaceCondition','currentSpeed','bottomType','structureType','baitSize','mainColor','additionalColor','species','notes','sizeInches','airTemp','waterTemp','waterDepthFt','presentationDepthFt'].forEach(id=>{ const el=$(id); if(el) ['input','change'].forEach(evt=>el.addEventListener(evt, updateFieldFillStates)); });
+['date','timeOfDay','waterName','wind','windDirection','waterCondition','waterClarity','surfaceCondition','currentSpeed','bottomType','structureType','baitSize','mainColor','additionalColor','lureSize','lureMainColor','lureAdditionalColor','species','notes','sizeInches','airTemp','waterTemp','waterDepthFt','presentationDepthFt'].forEach(id=>{ const el=$(id); if(el) ['input','change'].forEach(evt=>el.addEventListener(evt, updateFieldFillStates)); });
 $('logForm')?.addEventListener('input', event=>{ if(event.target && event.target.closest('#logForm')) updateFieldFillStates(); });
 $('logForm')?.addEventListener('change', event=>{ if(event.target && event.target.closest('#logForm')) updateFieldFillStates(); });
 $('waterClarity').addEventListener('change',syncMirroredConditionFields);
@@ -2747,6 +2805,7 @@ $('saveBtn').addEventListener('click',()=>{
 $('logForm').addEventListener('submit',onSubmit);
 updateConditionFieldsForWaterType();
 applyBaitTypeUI();
+forcePresentationControlsNative();
 initTrackFillWrappers();
 syncAddLogButton();
 updateCloudUi();
@@ -2761,3 +2820,6 @@ document.addEventListener('click',event=>{ const picker=$('sheetPicker'); if(!pi
 $('sheetPicker')?.addEventListener('click', event=>event.stopPropagation());
 document.addEventListener('keydown',event=>{ if(event.key==='Escape') closePickerPopover(); });
 window.addEventListener('resize', ()=>{ updateSheetSelectTriggers(); if(activeSheetSelect) positionPickerPopover(getPickerTriggerForSelect(activeSheetSelect)); });
+
+if($('reviewFiltersBtn')) $('reviewFiltersBtn').addEventListener('click',()=>{ $('reviewSheet')?.classList.add('filters-open'); });
+if($('closeReviewFiltersBtn')) $('closeReviewFiltersBtn').addEventListener('click',()=>{ $('reviewSheet')?.classList.remove('filters-open'); });
