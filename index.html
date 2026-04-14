@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Fishing Logbook v10.39.18</title>
+<title>Fishing Logbook v10.39.19</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -20,8 +20,8 @@
 </head>
 <body>
 <div id="map"></div>
-<div id="topBadge" class="glass">Fishing Logbook v10.39.18</div>
-<div id="buildNotice" class="noticeBanner">This app is still in development. Issues may arise as features are added but they will be fixed shortly, provided I'm not out casting a fly.</div>
+<div id="topBadge" class="glass">Fishing Logbook v10.39.19</div>
+<div id="buildNotice" class="noticeBanner">This app is still in development. Issues may arise as features are added, but they should usually be corrected quickly.</div>
 <div id="statusBadge" class="glass hidden">Ready.</div>
 <div id="cloudBadge" class="glass hidden"></div>
 
@@ -201,6 +201,8 @@
       </div>
 
 
+      <div id="baitHelper" class="helper-box hidden"></div>
+
       <div id="customFlyActions" class="custom-fly-actions hidden">
         <button type="button" id="saveCustomFlyBtn" class="secondaryBtn">Save This Fly for Later</button>
         <div id="customFlyStatus" class="helper-box hidden"></div>
@@ -240,8 +242,6 @@
         <div class="helper-box inline-helper">Use exact depth here for Great Lakes trolling or deep-water work.</div>
       </div>
 
-
-      <div id="baitHelper" class="helper-box hidden"></div>
 
       <div id="hatchesWrap" class="hidden">
         <label>Hatch<input type="text" id="hatches" name="hatches" placeholder="Hex, caddis, bwo, none..."></label>
@@ -349,7 +349,7 @@
   <div class="sheet-head"><div><h2>Read Me</h2><p>What this app is, what it tracks, and how sharing works.</p></div><button id="closeReadMeSheetBtn" class="sheetClose" type="button">Close</button></div>
   <div class="readme-copy">
     <h3>About This Project</h3>
-    <p>This app is a hobby fishing log and trip-analysis tool built to help anglers record conditions, methods, and results in a more useful way than a simple notebook or map pin. New features are still being added as the system grows.</p>
+    <p>This app is a hobby fishing log and trip-analysis tool built to help anglers record conditions, methods, and results in a more useful way than a simple notebook or map pin. It can be used as a private personal log, or as a broader shared dataset when anglers choose to sync and share their information.</p>
     <h3>What It Tracks</h3>
     <p>You can log trip details, water and weather conditions, fishing style, bait or presentation choices, and results. Over time, that information becomes more valuable because patterns begin to emerge across seasons, waters, species, and techniques.</p>
     
@@ -366,7 +366,7 @@
 </ul>
 <p>Shared map placement follows a simple rule: it uses the nearest public access point when one is found. If no access point is found, it uses the saved fishing spot itself. It does not intentionally throw markers into random areas.</p>
 <h3>Where It’s Going</h3>
-    <p>This is a hobby project under active development. New features will continue to be added, with the long-term goal of building a more predictive, AI-driven fishing experience. As more data is logged, the system will be able to do a better job identifying patterns and help anglers make smarter decisions about where, when, and how to fish.</p>
+    <p>This is a hobby project under active development. New features will continue to be added, with the long-term goal of building a more predictive, AI-driven fishing experience. As more data is logged — whether from one angler or many — the system should be able to move from simple recordkeeping toward predictive fishing output that helps suggest where, when, and how to fish.</p>
     <h3>Development Note</h3>
     <p>This is a hobby project under active development. Improvements and new features are being added over time, and some parts of the app may change as the system grows.</p>
   </div>

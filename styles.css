@@ -29,9 +29,9 @@ button:disabled { opacity:.6; cursor:not-allowed; }
 .suggestions { position:relative; margin-top:6px; border:1px solid var(--border); border-radius:12px; background:var(--panel-2); overflow:hidden; }
 .suggestion-item { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.08); cursor:pointer; } .suggestion-item:last-child { border-bottom:none; } .suggestion-item:hover { background:rgba(255,255,255,.07); }
 .suggestion-name { display:block; color:var(--text); font-weight:700; } .suggestion-meta { display:block; color:var(--muted); font-size:12px; margin-top:2px; }
-.statsGrid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
-.statCard { padding:12px; border-radius:14px; background:var(--panel-2); border:1px solid var(--border); }
-.statLabel { color:var(--muted); font-size:12px; margin-bottom:8px; } .statValue { font-size:24px; font-weight:800; line-height:1.1; }
+.statsGrid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; margin:4px 0 10px; }
+.statCard { padding:8px 10px; border-radius:12px; background:rgba(255,255,255,.04); border:1px solid var(--border); }
+.statLabel { color:var(--muted); font-size:11px; margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; } .statValue { font-size:16px; font-weight:700; line-height:1.1; }
 .entryCount { color:var(--muted); font-size:13px; margin-bottom:12px; } .entryList { display:grid; gap:10px; } .entryCard { padding:14px; border-radius:16px; background:var(--panel-2); border:1px solid var(--border); }
 .entryTitleRow { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; } .entryTitle { margin:0 0 6px; font-size:17px; } .entryMeta { margin:0 0 10px; color:var(--muted); font-size:13px; line-height:1.4; }
 .entryButtons { display:flex; gap:8px; } .entryBtn.danger { background:rgba(153,36,36,.3); } .chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; } .chip { display:inline-flex; align-items:center; min-height:28px; padding:0 10px; border-radius:999px; background:rgba(255,255,255,.06); border:1px solid var(--border); font-size:12px; } .entryNotes { margin:0; white-space:pre-wrap; line-height:1.4; }
@@ -102,8 +102,13 @@ body.action-dock-hidden #mapSearchPanel{display:none !important;}
 body.action-dock-hidden #showActionDockBtn{display:inline-flex !important;}
 .reviewFiltersToggle{display:none;}
 .reviewFilterBar{margin-bottom:12px;}
-.reviewFilterGrid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:10px;align-items:end;}
+.reviewFilterGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end;}
 .reviewFilterGrid label{margin:0;}
+
+@media (max-width:1100px){
+  .reviewFilterGrid{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+
 @media (max-width:720px){
   #mapUiToggleBar{left:12px;right:12px;top:auto;bottom:var(--safe-bottom);justify-content:center;}
   #floatingActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;left:12px;right:12px;top:auto;bottom:var(--safe-bottom);} 
@@ -144,3 +149,5 @@ body.action-dock-hidden #showActionDockBtn{display:inline-flex !important;}
 .custom-fly-actions{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;}
 .custom-fly-actions .secondaryBtn{align-self:flex-start;}
 .custom-fly-actions .helper-box{margin:0;}
+
+#baitHelper{margin-top:2px;}

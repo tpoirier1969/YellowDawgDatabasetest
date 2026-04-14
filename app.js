@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.18';
+const APP_VERSION='v10.39.19';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -6,6 +6,7 @@ const FISHING_UI_OPTIONS_KEY='fishingLogbook.uiOptions';
 const FISHING_FILTERS_KEY='fishingLogbook.savedFilters';
 const FISHING_DOCK_STATE_KEY='fishingLogbook.mapOnly';
 const FISHING_CUSTOM_FLIES_KEY='fishingLogbook.customFlies';
+const FISHING_CUSTOM_FLY_TABLE='fishing_custom_flies';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
 const OVERPASS_URL='https://overpass-api.de/api/interpreter';
 const OVERPASS_RADIUS_METERS=1200;
@@ -29,13 +30,13 @@ const ICE_BAIT_TYPES=['Minnow','Shiner','Sucker Minnow','Waxworm / Euro Larva','
 
 const LURE_SIZE_OPTIONS={
   'Spoon':['1/16 oz','1/8 oz','1/4 oz','3/8 oz','1/2 oz','3/4 oz','1 oz','1.5 in','2 in','2.5 in','3 in','3.5 in','4 in','5 in'],
-  'Plug / Crankbait':['1.5 in','2 in','2.5 in','3 in','3.5 in','4 in','4.5 in','5 in','Floating','Suspending','Sinking'],
-  'Spinner':['#0','#1','#2','#3','#4','#5','1/8 oz','1/4 oz','3/8 oz','1/2 oz'],
-  'Jerkbait':['2.5 in','3 in','3.5 in','4 in','4.5 in','5 in','Suspending','Floating'],
-  'Soft Plastic':['2 in','3 in','4 in','5 in','6 in','7 in'],
-  'Jig':['1/32 oz','1/16 oz','1/8 oz','1/4 oz','3/8 oz','1/2 oz','3/4 oz','1 oz'],
+  'Plug / Crankbait':['1-1/2 in · 1/16 oz','2 in · 1/8 oz','2-3/4 in · 3/16 oz','3-1/2 in · 1/4 oz','4-3/8 in · 7/16 oz','5-1/4 in · 7/16 oz','7 in · 11/16 oz','Floating','Suspending','Sinking'],
+  'Spinner':['#00 · 1/18 oz','#0 · 1/12 oz','#1 · 1/8 oz','#2 · 1/6 oz','#3 · 1/4 oz','#4 · 1/3 oz','#5 · 1/2 oz'],
+  'Jerkbait':['2.5 in · 1/8 oz','3 in · 1/4 oz','3.5 in · 3/8 oz','4 in · 1/2 oz','4.5 in · 5/8 oz','5 in · 3/4 oz','Suspending','Floating'],
+  'Soft Plastic':['2 in','2.75 in','3 in','3.25 in','3.5 in','4 in','5 in','6 in','7 in'],
+  'Jig':['1/64 oz','1/32 oz','1/16 oz','1/8 oz','1/4 oz','3/8 oz','1/2 oz','3/4 oz','1 oz'],
   'Swimbait':['2.8 in','3.3 in','3.8 in','4.3 in','4.8 in','5.8 in','1/4 oz','3/8 oz','1/2 oz','3/4 oz'],
-  'Topwater':['2 in','2.5 in','3 in','3.5 in','4 in','4.5 in','5 in'],
+  'Topwater':['2 in','2.5 in','3 in','3.5 in','4 in','4.5 in','5 in','Popper','Prop','Walker','Buzzbait','Frog'],
   'Other':['Small','Medium','Large']
 };
 const SKY_OPTIONS=['Clear','Partly Cloudy','Cloudy','Rain','Snow','Night'];
@@ -221,7 +222,7 @@ const state={
   _lastMapPickAt:0,
   filters:loadSavedFilters(),
   ui:loadUiOptions(),
-  cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true,omitBottomType:false,omitPresentationDepthFt:false}
+  cloud:{configured:false,ready:false,syncing:false,status:'Local only',lastSyncAt:'',lastError:'',client:null,table:DEFAULT_FISHING_SUPABASE_CONFIG.table,appId:DEFAULT_FISHING_SUPABASE_CONFIG.appId,autoSyncOnSave:true,omitBottomType:false,omitPresentationDepthFt:false, customFlyTable:FISHING_CUSTOM_FLY_TABLE, customFlySyncDisabled:false}
 };
 
 const $=id=>document.getElementById(id);
@@ -485,7 +486,8 @@ function getFishingSupabaseConfig(){
     table:String(cfg.table || cfg.tableName || DEFAULT_FISHING_SUPABASE_CONFIG.table).trim() || DEFAULT_FISHING_SUPABASE_CONFIG.table,
     appId:String(cfg.appId || cfg.applicationId || DEFAULT_FISHING_SUPABASE_CONFIG.appId).trim() || DEFAULT_FISHING_SUPABASE_CONFIG.appId,
     autoSyncOnLoad:cfg.autoSyncOnLoad!==false,
-    autoSyncOnSave:cfg.autoSyncOnSave!==false
+    autoSyncOnSave:cfg.autoSyncOnSave!==false,
+    customFlyTable:String(cfg.customFlyTable || cfg.custom_fly_table || FISHING_CUSTOM_FLY_TABLE).trim() || FISHING_CUSTOM_FLY_TABLE
   };
 }
 
@@ -765,6 +767,7 @@ async function initCloud({syncOnLoad=true}={}){
   state.cloud.table=cfg.table;
   state.cloud.appId=cfg.appId;
   state.cloud.autoSyncOnSave=cfg.autoSyncOnSave;
+  state.cloud.customFlyTable=cfg.customFlyTable;
   state.cloud.lastError='';
   if(!state.cloud.configured){
     state.cloud.ready=false;
@@ -839,6 +842,7 @@ async function syncCloud({quiet=false}={}){
     if(error) throw error;
     state.entries=mergeEntries(state.entries, (data||[]).map(cloudRowToEntry));
     persistEntries();
+    await syncCustomFliesCloud({quiet:true});
     render();
     state.cloud.lastSyncAt=new Date().toISOString();
     state.cloud.lastError='';
@@ -1183,14 +1187,14 @@ const BAIT_COLOR_DEFAULTS={
 };
 
 const LURE_TYPE_EXAMPLES={
-  'Spoon':'Common example: Little Cleo or Kastmaster.',
-  'Plug / Crankbait':'Common example: Rapala Shad Rap or Original Floating Rapala.',
-  'Spinner':'Common example: Mepps Aglia inline spinner.',
-  'Jerkbait':'Common example: Rapala X-Rap or Husky Jerk.',
-  'Soft Plastic':'Common example: Zoom Super Fluke or a straight-tail worm.',
-  'Jig':'Common example: a bucktail jig or round-head jig with a grub.',
-  'Swimbait':'Common example: a paddle-tail like a Keitech Swing Impact on a jighead.',
-  'Topwater':'Common example: Heddon Zara Spook or Jitterbug.',
+  'Spoon':'Common example: Little Cleo or Kastmaster. Sizes often show up as either weight or overall length.',
+  'Plug / Crankbait':'Common example: Rapala Original Floating or Shad Rap. These are commonly sold by body length, often with a matching weight.',
+  'Spinner':'Common example: Mepps Aglia inline spinner. Spinner sizes are commonly listed as #00 through #5, often with matching weights.',
+  'Jerkbait':'Common example: Rapala X-Rap or Husky Jerk. These are usually sold by body length and sometimes by weight.',
+  'Soft Plastic':'Common example: Zoom Super Fluke or a finesse worm. Length is usually the useful size field here.',
+  'Jig':'Common example: a bucktail jig or round-head jig with a grub. Weight is usually the important size field.',
+  'Swimbait':'Common example: a paddle-tail like a Keitech Swing Impact on a jighead. Length and jighead weight are both common.',
+  'Topwater':'Common example: Heddon Zara Spook, Jitterbug, popper, frog, or buzzbait.',
   'Other':'Pick the closest family and use Notes when it needs more detail.'
 };
 
@@ -1203,7 +1207,7 @@ function loadCustomFlies(){
     const raw=localStorage.getItem(FISHING_CUSTOM_FLIES_KEY);
     if(!raw) return [];
     const parsed=JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(item=>item && item.name && item.category) : [];
+    return Array.isArray(parsed) ? mergeCustomFlyLists([], parsed) : [];
   }catch{
     return [];
   }
@@ -1213,10 +1217,112 @@ function persistCustomFlies(customFlies){
   try{ localStorage.setItem(FISHING_CUSTOM_FLIES_KEY, JSON.stringify(customFlies || [])); }catch{}
 }
 
+
+function normalizeCustomFlyRecord(record={}){
+  const primary=[...new Set((record.primary||[]).map(value=>String(value||'').trim()).filter(Boolean))];
+  const secondary=[...new Set((record.secondary||[]).map(value=>String(value||'').trim()).filter(Boolean))];
+  const sizes=[...new Set((record.sizes||[]).map(value=>Number(value)).filter(Number.isFinite))].sort((a,b)=>a-b);
+  return {
+    name:String(record.name||'').trim(),
+    category:String(record.category||'').trim(),
+    primary,
+    secondary,
+    sizes,
+    notes:String(record.notes||'Custom fly').trim() || 'Custom fly',
+    owner:String(record.owner || state?.angler?.name || DEFAULT_ANGLER_SETTINGS.name || '').trim(),
+    anglerKey:String(record.anglerKey || state?.angler?.key || '').trim(),
+    updatedAt:record.updatedAt || new Date().toISOString()
+  };
+}
+
+function mergeCustomFlyLists(baseList=[], incomingList=[]){
+  const merged=new Map();
+  [...baseList, ...incomingList].forEach(raw=>{
+    const record=normalizeCustomFlyRecord(raw||{});
+    if(!record.name || !record.category) return;
+    const key=`${record.name.toLowerCase()}|${record.category.toLowerCase()}`;
+    const prior=merged.get(key);
+    if(!prior){ merged.set(key, record); return; }
+    merged.set(key, {
+      ...prior,
+      ...record,
+      primary:[...new Set([...(prior.primary||[]), ...(record.primary||[])])],
+      secondary:[...new Set([...(prior.secondary||[]), ...(record.secondary||[])])],
+      sizes:[...new Set([...(prior.sizes||[]), ...(record.sizes||[])])].sort((a,b)=>a-b),
+      notes: record.notes || prior.notes || 'Custom fly'
+    });
+  });
+  return [...merged.values()].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+}
+
+function getCustomFlyCloudId(record={}){
+  const ownerKey=String(record.anglerKey || record.owner || state?.angler?.key || state?.angler?.name || 'shared').trim().toLowerCase();
+  const nameKey=String(record.name || '').trim().toLowerCase();
+  const categoryKey=String(record.category || '').trim().toLowerCase();
+  return `fly-${ownerKey.replace(/[^a-z0-9]+/g,'-')}-${categoryKey.replace(/[^a-z0-9]+/g,'-')}-${nameKey.replace(/[^a-z0-9]+/g,'-')}`;
+}
+
+function customFlyRecordToCloudRow(record={}){
+  const normalized=normalizeCustomFlyRecord(record);
+  return {
+    id:getCustomFlyCloudId(normalized),
+    app_id:state.cloud.appId,
+    owner_name:normalized.owner || null,
+    angler_key:normalized.anglerKey || null,
+    name:normalized.name,
+    category:normalized.category,
+    primary_colors:normalized.primary || [],
+    secondary_colors:normalized.secondary || [],
+    sizes:normalized.sizes || [],
+    notes:normalized.notes || null,
+    updated_at:new Date().toISOString()
+  };
+}
+
+function cloudRowToCustomFlyRecord(row={}){
+  return normalizeCustomFlyRecord({
+    name:row.name,
+    category:row.category,
+    primary:Array.isArray(row.primary_colors) ? row.primary_colors : [],
+    secondary:Array.isArray(row.secondary_colors) ? row.secondary_colors : [],
+    sizes:Array.isArray(row.sizes) ? row.sizes : [],
+    notes:row.notes || 'Custom fly',
+    owner:row.owner_name || '',
+    anglerKey:row.angler_key || '',
+    updatedAt:row.updated_at || ''
+  });
+}
+
+async function syncCustomFliesCloud({rowsToPush=null, quiet=true}={}){
+  if(!state.cloud.ready || state.cloud.customFlySyncDisabled) return true;
+  const tableName=state.cloud.customFlyTable || FISHING_CUSTOM_FLY_TABLE;
+  try{
+    const rows=(rowsToPush || loadCustomFlies().map(customFlyRecordToCloudRow)).filter(row=>row && row.name && row.category);
+    if(rows.length){
+      const {error:pushError}=await state.cloud.client.from(tableName).upsert(rows, {onConflict:'id'});
+      if(pushError) throw pushError;
+    }
+    const {data,error}=await state.cloud.client.from(tableName).select('*').eq('app_id', state.cloud.appId).order('updated_at', {ascending:false});
+    if(error) throw error;
+    const merged=mergeCustomFlyLists(loadCustomFlies(), (data||[]).map(cloudRowToCustomFlyRecord));
+    persistCustomFlies(merged);
+    return true;
+  }catch(error){
+    const message=String(error?.message || '');
+    if(/fishing_custom_flies|schema cache|relation .* does not exist|Could not find the table/i.test(message)){
+      state.cloud.customFlySyncDisabled=true;
+      if(!quiet) setStatus('Custom-fly cloud sync is not ready yet. Run the updated Supabase SQL when you want custom flies shared across devices.', 5200);
+      return false;
+    }
+    if(!quiet) setStatus(`Custom-fly sync failed: ${message}`, 4200);
+    return false;
+  }
+}
+
 function getAllFlyReference(){
   const base=getFlyReference();
   const custom=loadCustomFlies();
-  return [...base, ...custom];
+  return mergeCustomFlyLists(base, custom);
 }
 
 function normalizeFlyTextValue(value=''){
@@ -1236,34 +1342,27 @@ function buildCustomFlyRecord(){
     primary: mainColor ? [mainColor] : [],
     secondary: additionalColor ? [additionalColor] : [],
     sizes: size ? [Number(size)] : [],
-    notes: 'Custom fly'
+    notes: 'Custom fly',
+    owner:state.angler?.name || DEFAULT_ANGLER_SETTINGS.name,
+    anglerKey:state.angler?.key || '',
+    updatedAt:new Date().toISOString()
   };
 }
 
 function saveCustomFlyRecord(record, {silent=false}={}){
   if(!record || !record.name || !record.category) return false;
+  const normalized=normalizeCustomFlyRecord(record);
+  const keyName=normalized.name.trim().toLowerCase();
+  const keyCategory=normalized.category.trim().toLowerCase();
   const custom=loadCustomFlies();
-  const keyName=record.name.trim().toLowerCase();
-  const keyCategory=record.category.trim().toLowerCase();
   const existingIndex=custom.findIndex(item=>String(item.name||'').trim().toLowerCase()===keyName && String(item.category||'').trim().toLowerCase()===keyCategory);
-  if(existingIndex>=0){
-    const existing=custom[existingIndex];
-    const merged={
-      ...existing,
-      primary:[...new Set([...(existing.primary||[]), ...(record.primary||[])].filter(Boolean))],
-      secondary:[...new Set([...(existing.secondary||[]), ...(record.secondary||[])].filter(Boolean))],
-      sizes:[...new Set([...(existing.sizes||[]), ...(record.sizes||[])].filter(Boolean).map(v=>Number(v)))].sort((a,b)=>a-b),
-      notes: existing.notes || record.notes || 'Custom fly'
-    };
-    custom[existingIndex]=merged;
-    persistCustomFlies(custom);
-    if(!silent) showCustomFlyStatus('Fly updated in your custom fly list.');
-    return true;
+  const exists=existingIndex>=0;
+  const mergedList=mergeCustomFlyLists(custom, [normalized]);
+  persistCustomFlies(mergedList);
+  if(state.cloud.ready && !state.cloud.customFlySyncDisabled){
+    syncCustomFliesCloud({rowsToPush:[customFlyRecordToCloudRow(normalized)], quiet:silent});
   }
-  custom.push(record);
-  custom.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
-  persistCustomFlies(custom);
-  if(!silent) showCustomFlyStatus('Fly saved to your custom fly list.');
+  if(!silent) showCustomFlyStatus(exists ? 'Fly updated in your shared custom fly list.' : 'Fly saved to your shared custom fly list.');
   return true;
 }
 
@@ -1516,7 +1615,8 @@ function updateBaitHelperContext(){
     return;
   }
   if(type==='Lure'){
-    setBaitHelper(subtype ? (LURE_TYPE_EXAMPLES[subtype] || LURE_TYPE_EXAMPLES.Other) : 'Choose a lure type and a plain-English example will show here.');
+    const sizeHint=(LURE_SIZE_OPTIONS[subtype]||[]).slice(0,4).join(', ');
+    setBaitHelper(subtype ? `${LURE_TYPE_EXAMPLES[subtype] || LURE_TYPE_EXAMPLES.Other}${sizeHint ? ' Common size defaults: ' + sizeHint + (LURE_SIZE_OPTIONS[subtype].length>4 ? '…' : '.') : ''}` : 'Choose a lure type and a plain-English example will show here.');
     return;
   }
   if(type==='Live Bait'){
@@ -2904,7 +3004,7 @@ $('saveCustomFlyBtn')?.addEventListener('click',()=>{
   saveCustomFlyRecord(record);
   updateFlySuggestions($('baitName')?.value?.trim() || '');
   refreshFlySizeOptions();
-  setStatus('Custom fly saved for future logs.', 2800);
+  setStatus(state.cloud.ready && !state.cloud.customFlySyncDisabled ? 'Custom fly saved and shared.' : 'Custom fly saved for future logs.', 3000);
 });
 document.addEventListener('click',event=>{
   if(!$('nameSuggestions').contains(event.target) && event.target!==$('baitName')) $('nameSuggestions').classList.add('hidden');

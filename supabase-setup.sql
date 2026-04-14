@@ -1,115 +1,51 @@
--- Fishing Logbook shared database starter
--- Run this in your Supabase SQL Editor.
+-- Fishing Logbook custom fly sharing add-on for v10.39.19
+-- Run this in Supabase SQL Editor if you want custom flies shared across devices.
 
-create table if not exists public.fishing_catch_logs (
+create table if not exists public.fishing_custom_flies (
   id text primary key,
-  app_id text not null default 'fishing_logbook_shared',
+  app_id text not null,
   owner_name text,
-  owner_is_anonymous boolean not null default false,
   angler_key text,
-  water_type text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  log_date date not null,
-  time_of_day text not null,
-  water_name text not null,
-  waypoint_name text,
-  bait_type text not null,
-  bait_subtype text,
-  bait_name text not null,
-  main_color text,
-  additional_color text,
-  bait_size text,
-  species text not null,
-  size_inches numeric,
-  weight text,
-  quantity integer,
-  air_temp numeric,
-  water_temp numeric,
-  sky_condition text,
-  water_condition text,
-  water_clarity text,
-  depth_zone text,
-  retrieve_speed text,
-  presentation_style text,
-  structure_type text,
-  hatches text,
+  name text not null,
+  category text not null,
+  primary_colors jsonb not null default '[]'::jsonb,
+  secondary_colors jsonb not null default '[]'::jsonb,
+  sizes jsonb not null default '[]'::jsonb,
   notes text,
-  location_source text,
-  marker_accuracy numeric,
-  marker_lat double precision,
-  marker_lng double precision,
-  share_to_cloud boolean not null default true,
-  share_location_level text not null default 'Water Type Only',
-  share_angler_name boolean not null default true,
-  share_bait_details boolean not null default true,
-  share_size_details boolean not null default true,
-  share_notes boolean not null default true,
-  county_name text,
-  state_name text
+  updated_at timestamptz not null default now()
 );
 
-alter table public.fishing_catch_logs alter column size_inches drop not null;
-alter table public.fishing_catch_logs alter column quantity drop not null;
-alter table public.fishing_catch_logs alter column marker_lat drop not null;
-alter table public.fishing_catch_logs alter column marker_lng drop not null;
-alter table public.fishing_catch_logs add column if not exists share_to_cloud boolean not null default true;
-alter table public.fishing_catch_logs add column if not exists share_location_level text not null default 'Exact Spot';
-alter table public.fishing_catch_logs add column if not exists share_bait_details boolean not null default true;
-alter table public.fishing_catch_logs add column if not exists share_size_details boolean not null default true;
-alter table public.fishing_catch_logs add column if not exists share_notes boolean not null default true;
-alter table public.fishing_catch_logs add column if not exists county_name text;
-alter table public.fishing_catch_logs add column if not exists state_name text;
+create index if not exists fishing_custom_flies_app_id_idx on public.fishing_custom_flies(app_id);
+create index if not exists fishing_custom_flies_name_idx on public.fishing_custom_flies(name);
+create index if not exists fishing_custom_flies_category_idx on public.fishing_custom_flies(category);
 
-create index if not exists fishing_catch_logs_app_id_created_at_idx on public.fishing_catch_logs (app_id, created_at desc);
+alter table public.fishing_custom_flies enable row level security;
 
-alter table public.fishing_catch_logs enable row level security;
-
-drop policy if exists fishing_catch_logs_public_read on public.fishing_catch_logs;
-create policy fishing_catch_logs_public_read
-  on public.fishing_catch_logs
-  for select
-  using (true);
-
-drop policy if exists fishing_catch_logs_public_insert on public.fishing_catch_logs;
-create policy fishing_catch_logs_public_insert
-  on public.fishing_catch_logs
-  for insert
-  with check (true);
-
-drop policy if exists fishing_catch_logs_public_update on public.fishing_catch_logs;
-create policy fishing_catch_logs_public_update
-  on public.fishing_catch_logs
-  for update
-  using (true)
-  with check (true);
-
-drop policy if exists fishing_catch_logs_public_delete on public.fishing_catch_logs;
-create policy fishing_catch_logs_public_delete
-  on public.fishing_catch_logs
-  for delete
-  using (true);
-
-create or replace function public.fishing_set_catch_logs_updated_at()
-returns trigger
-language plpgsql
-as $$
+do $$
 begin
-  new.updated_at = now();
-  return new;
-end;
-$$;
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'fishing_custom_flies' and policyname = 'Fishing custom flies public read'
+  ) then
+    create policy "Fishing custom flies public read" on public.fishing_custom_flies
+      for select using (true);
+  end if;
 
-drop trigger if exists fishing_catch_logs_set_updated_at on public.fishing_catch_logs;
-create trigger fishing_catch_logs_set_updated_at
-before update on public.fishing_catch_logs
-for each row
-execute function public.fishing_set_catch_logs_updated_at();
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'fishing_custom_flies' and policyname = 'Fishing custom flies public write'
+  ) then
+    create policy "Fishing custom flies public write" on public.fishing_custom_flies
+      for insert with check (true);
+  end if;
 
-alter table public.fishing_catch_logs add column if not exists owner_is_anonymous boolean not null default false;
-alter table public.fishing_catch_logs add column if not exists angler_key text;
-alter table public.fishing_catch_logs add column if not exists water_type text;
-alter table public.fishing_catch_logs add column if not exists share_angler_name boolean not null default true;
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'fishing_custom_flies' and policyname = 'Fishing custom flies public update'
+  ) then
+    create policy "Fishing custom flies public update" on public.fishing_custom_flies
+      for update using (true) with check (true);
+  end if;
+end $$;
 
-alter table public.fishing_catch_logs add column if not exists exact_marker_lat double precision;
-alter table public.fishing_catch_logs add column if not exists exact_marker_lng double precision;
+notify pgrst, 'reload schema';
