@@ -1,7 +1,7 @@
 window.FishingVocab = {
-  COLOR_SOLID_OPTIONS: ['Black','Blue','Brown','Chartreuse','Copper','Cream','Gold','Gray','Green','Orange','Pink','Purple','Red','Silver','White','Yellow'],
+  COLOR_SOLID_OPTIONS: ['Black','Blue','Brown','Chartreuse','Copper','Cream','Gold','Gray','Green','Orange','Pink','Purple','Red','Silver','Tan','White','Yellow'],
   COLOR_COMBO_OPTIONS: ['Black / Gold','Black / Silver','Blue / Silver','Brown / Orange','Fire Tiger','Glow','Gold / Red','Natural','Perch','Rainbow','Silver / Black','Silver / Blue','Silver / Chartreuse','White / Chartreuse','White / Pink','White / Red'],
-  COLOR_OPTIONS: ['Black','Blue','Brown','Chartreuse','Copper','Cream','Gold','Gray','Green','Orange','Pink','Purple','Red','Silver','White','Yellow','Black / Gold','Black / Silver','Blue / Silver','Brown / Orange','Fire Tiger','Glow','Gold / Red','Natural','Perch','Rainbow','Silver / Black','Silver / Blue','Silver / Chartreuse','White / Chartreuse','White / Pink','White / Red'],
+  COLOR_OPTIONS: ['Black','Blue','Brown','Chartreuse','Copper','Cream','Gold','Gray','Green','Orange','Pink','Purple','Red','Silver','Tan','White','Yellow','Black / Gold','Black / Silver','Blue / Silver','Brown / Orange','Fire Tiger','Glow','Gold / Red','Natural','Perch','Rainbow','Silver / Black','Silver / Blue','Silver / Chartreuse','White / Chartreuse','White / Pink','White / Red','Barred','Cinnamon','Dun','Flash','Holographic','Iridescent','Opalescent','Pearl','Peacock','Peacock Herl','Prismatic','UV Olive','UV Pearl','UV Pink','Variegated'],
   ANGLER_MARKER_COLORS: ['#2563eb','#dc2626','#16a34a','#ea580c','#7c3aed','#0891b2','#c026d3','#65a30d','#b45309','#be123c','#0f766e','#4f46e5'],
   FLY_TYPES: ['Dry','Nymph','Streamer','Emerger','Wet Fly','Terrestrial','Other'],
   LURE_TYPES: ['Spoon','Plug / Crankbait','Spinner','Jerkbait','Soft Plastic','Jig','Swimbait','Topwater','Other'],
