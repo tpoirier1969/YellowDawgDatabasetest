@@ -1,10 +1,11 @@
-const APP_VERSION='v10.39.17';
+const APP_VERSION='v10.39.18';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
 const FISHING_UI_OPTIONS_KEY='fishingLogbook.uiOptions';
 const FISHING_FILTERS_KEY='fishingLogbook.savedFilters';
 const FISHING_DOCK_STATE_KEY='fishingLogbook.mapOnly';
+const FISHING_CUSTOM_FLIES_KEY='fishingLogbook.customFlies';
 const FISHING_LEGACY_STORAGE_KEYS=['fishMapTestV10.entries'];
 const OVERPASS_URL='https://overpass-api.de/api/interpreter';
 const OVERPASS_RADIUS_METERS=1200;
@@ -1197,15 +1198,116 @@ function getFlyReference(){
   return Array.isArray(window.FLY_REFERENCE) ? window.FLY_REFERENCE : [];
 }
 
+function loadCustomFlies(){
+  try{
+    const raw=localStorage.getItem(FISHING_CUSTOM_FLIES_KEY);
+    if(!raw) return [];
+    const parsed=JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(item=>item && item.name && item.category) : [];
+  }catch{
+    return [];
+  }
+}
+
+function persistCustomFlies(customFlies){
+  try{ localStorage.setItem(FISHING_CUSTOM_FLIES_KEY, JSON.stringify(customFlies || [])); }catch{}
+}
+
+function getAllFlyReference(){
+  const base=getFlyReference();
+  const custom=loadCustomFlies();
+  return [...base, ...custom];
+}
+
+function normalizeFlyTextValue(value=''){
+  return String(value || '').trim();
+}
+
+function buildCustomFlyRecord(){
+  const name=normalizeFlyTextValue($('baitName')?.value);
+  const category=normalizeFlyTextValue($('baitSubtype')?.value);
+  const mainColor=normalizeFlyTextValue($('mainColor')?.value);
+  const additionalColor=normalizeFlyTextValue($('additionalColor')?.value);
+  const size=normalizeFlyTextValue($('baitSize')?.value);
+  if(!name || !category) return null;
+  return {
+    name,
+    category,
+    primary: mainColor ? [mainColor] : [],
+    secondary: additionalColor ? [additionalColor] : [],
+    sizes: size ? [Number(size)] : [],
+    notes: 'Custom fly'
+  };
+}
+
+function saveCustomFlyRecord(record, {silent=false}={}){
+  if(!record || !record.name || !record.category) return false;
+  const custom=loadCustomFlies();
+  const keyName=record.name.trim().toLowerCase();
+  const keyCategory=record.category.trim().toLowerCase();
+  const existingIndex=custom.findIndex(item=>String(item.name||'').trim().toLowerCase()===keyName && String(item.category||'').trim().toLowerCase()===keyCategory);
+  if(existingIndex>=0){
+    const existing=custom[existingIndex];
+    const merged={
+      ...existing,
+      primary:[...new Set([...(existing.primary||[]), ...(record.primary||[])].filter(Boolean))],
+      secondary:[...new Set([...(existing.secondary||[]), ...(record.secondary||[])].filter(Boolean))],
+      sizes:[...new Set([...(existing.sizes||[]), ...(record.sizes||[])].filter(Boolean).map(v=>Number(v)))].sort((a,b)=>a-b),
+      notes: existing.notes || record.notes || 'Custom fly'
+    };
+    custom[existingIndex]=merged;
+    persistCustomFlies(custom);
+    if(!silent) showCustomFlyStatus('Fly updated in your custom fly list.');
+    return true;
+  }
+  custom.push(record);
+  custom.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||'')));
+  persistCustomFlies(custom);
+  if(!silent) showCustomFlyStatus('Fly saved to your custom fly list.');
+  return true;
+}
+
+function showCustomFlyStatus(message=''){
+  const box=$('customFlyStatus');
+  if(!box) return;
+  const clean=String(message||'').trim();
+  box.textContent=clean;
+  box.classList.toggle('hidden', !clean);
+}
+
+function updateCustomFlyUi(){
+  const type=$('baitType')?.value;
+  const wrap=$('customFlyActions');
+  const button=$('saveCustomFlyBtn');
+  if(!wrap || !button) return;
+  const show=type==='Fly';
+  wrap.classList.toggle('hidden', !show);
+  if(!show){
+    showCustomFlyStatus('');
+    return;
+  }
+  const record=buildCustomFlyRecord();
+  const exists=record ? !!findExactFly(record.name, record.category) : false;
+  button.disabled=!record;
+  button.textContent=exists ? 'Update Saved Fly' : 'Save This Fly for Later';
+  if(!record){
+    showCustomFlyStatus('Type a fly name and choose a fly type to save a custom fly.');
+  }else if(exists){
+    showCustomFlyStatus('This fly already exists in your fly list. Save to update colors or size.');
+  }else{
+    showCustomFlyStatus('Save this fly so it appears in future suggestions.');
+  }
+}
+
 function findExactFly(name, subtype=''){
   const normalized=(name||'').trim().toLowerCase();
   if(!normalized) return null;
-  return getFlyReference().find(item=>item.name.toLowerCase()===normalized && (!subtype || item.category===subtype)) || null;
+  return getAllFlyReference().find(item=>item.name.toLowerCase()===normalized && (!subtype || item.category===subtype)) || null;
 }
 
 function getFlyMatches(query='', subtype=''){
   const normalized=(query||'').trim().toLowerCase();
-  return getFlyReference().filter(item=>{
+  return getAllFlyReference().filter(item=>{
     const subtypeOk=!subtype || item.category===subtype;
     const queryOk=!normalized || item.name.toLowerCase().includes(normalized);
     return subtypeOk && queryOk;
@@ -1228,7 +1330,7 @@ function refreshFlySizeOptions(){
   }else if(subtype){
     sizes=Array.from({length:19}, (_,idx)=>String(idx+2));
   }else{
-    const pool=getFlyReference();
+    const pool=getAllFlyReference();
     sizes=[...new Set(pool.flatMap(item=>item.sizes||[]).map(value=>String(value)).filter(Boolean))].sort((a,b)=>Number(a)-Number(b));
   }
   setOptions($('baitSize'), sizes, sizes.length ? 'Choose fly size' : 'No sizes loaded');
@@ -1528,6 +1630,7 @@ function applyBaitTypeUI(){
   updatePresentationOptions();
   forcePresentationControlsNative();
   updateBaitHelperContext();
+  updateCustomFlyUi();
   updateSheetSelectTriggers();
   $('baitType').dataset.lastType=type;
 }
@@ -1552,6 +1655,7 @@ function updateFlySuggestions(query){
     $('nameSuggestions').appendChild(div);
   });
   $('nameSuggestions').classList.remove('hidden');
+  updateCustomFlyUi();
 }
 
 function applyFly(item){
@@ -1562,6 +1666,7 @@ function applyFly(item){
   refreshFlySizeOptions();
   if(item.sizes?.length) $('baitSize').value=String(item.sizes[0]);
   setBaitHelper(`${item.notes}. Suggested colors: ${[...(item.primary||[]), ...(item.secondary||[])].join(', ')}.`);
+  updateCustomFlyUi();
 }
 
 
@@ -2170,6 +2275,10 @@ async function onSubmit(event){
     if(!state.currentDraftMarker) throw new Error('Fishing spot is missing.');
     const ll=state.currentDraftMarker.getLatLng();
     const placeDetails=await reverseLookupPlaceDetails(ll.lat,ll.lng);
+    if(raw.baitType==='Fly'){
+      const customFlyRecord=buildCustomFlyRecord();
+      if(customFlyRecord) saveCustomFlyRecord(customFlyRecord,{silent:true});
+    }
     const entry=normalizeEntry({
       id:getSafeRandomId(),
       owner:state.angler.name || DEFAULT_ANGLER_SETTINGS.name,
@@ -2768,7 +2877,10 @@ $('baitName').addEventListener('input',()=>{
     else {
       refreshFlySizeOptions();
       updateBaitHelperContext();
+      updateCustomFlyUi();
     }
+  } else {
+    updateCustomFlyUi();
   }
 });
 $('baitName').addEventListener('focus',()=>{
@@ -2776,6 +2888,23 @@ $('baitName').addEventListener('focus',()=>{
     refreshFlySizeOptions();
     updateFlySuggestions($('baitName').value.trim());
   }
+});
+
+['baitSubtype','baitSize','mainColor','additionalColor'].forEach(id=>{
+  const el=$(id);
+  el?.addEventListener('change', updateCustomFlyUi);
+});
+$('saveCustomFlyBtn')?.addEventListener('click',()=>{
+  const record=buildCustomFlyRecord();
+  if(!record){
+    showCustomFlyStatus('Type a fly name and choose a fly type first.');
+    setStatus('Custom fly needs a name and fly type first.', 3200);
+    return;
+  }
+  saveCustomFlyRecord(record);
+  updateFlySuggestions($('baitName')?.value?.trim() || '');
+  refreshFlySizeOptions();
+  setStatus('Custom fly saved for future logs.', 2800);
 });
 document.addEventListener('click',event=>{
   if(!$('nameSuggestions').contains(event.target) && event.target!==$('baitName')) $('nameSuggestions').classList.add('hidden');

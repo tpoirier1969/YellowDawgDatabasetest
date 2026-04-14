@@ -140,3 +140,7 @@ body.action-dock-hidden #showActionDockBtn{display:inline-flex !important;}
   #logForm .form-grid.keep-three,
   #logForm .technique-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
+
+.custom-fly-actions{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;}
+.custom-fly-actions .secondaryBtn{align-self:flex-start;}
+.custom-fly-actions .helper-box{margin:0;}

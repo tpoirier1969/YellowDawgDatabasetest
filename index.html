@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Fishing Logbook v10.39.17</title>
+<title>Fishing Logbook v10.39.18</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
@@ -20,7 +20,7 @@
 </head>
 <body>
 <div id="map"></div>
-<div id="topBadge" class="glass">Fishing Logbook v10.39.17</div>
+<div id="topBadge" class="glass">Fishing Logbook v10.39.18</div>
 <div id="buildNotice" class="noticeBanner">This app is still in development. Issues may arise as features are added but they will be fixed shortly, provided I'm not out casting a fly.</div>
 <div id="statusBadge" class="glass hidden">Ready.</div>
 <div id="cloudBadge" class="glass hidden"></div>
@@ -198,6 +198,12 @@
             <option value="">None</option>
           </select>
         </label>
+      </div>
+
+
+      <div id="customFlyActions" class="custom-fly-actions hidden">
+        <button type="button" id="saveCustomFlyBtn" class="secondaryBtn">Save This Fly for Later</button>
+        <div id="customFlyStatus" class="helper-box hidden"></div>
       </div>
 
       <div id="lureDetailsRow" class="form-grid keep-three compact-grid hidden">
