@@ -10,6 +10,6 @@ window.FishingVocab = {
     'Atlantic Salmon','Black Crappie','Bluegill','Bowfin','Brook Trout','Brown Trout','Bullhead','Burbot','Channel Catfish',
     'Chinook Salmon','Cisco','Coho Salmon','Common Carp','Flathead Catfish','Freshwater Drum','Gar','Hybrid Striped Bass',
     'Lake Sturgeon','Lake Trout','Lake Whitefish','Largemouth Bass','Muskellunge','Northern Pike','Pumpkinseed',
-    'Rainbow Trout / Steelhead','Rock Bass','Sauger','Smallmouth Bass','Splake','Sunfish','Walleye','White Bass','White Crappie','Whitefish (Lake Whitefish)','Yellow Perch'
+    'Rainbow Trout','Steelhead','Rock Bass','Sauger','Smallmouth Bass','Splake','Sunfish','Walleye','White Bass','White Crappie','Whitefish (Lake Whitefish)','Yellow Perch'
   ].sort((a,b)=>a.localeCompare(b))
 };

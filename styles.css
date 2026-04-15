@@ -172,21 +172,3 @@ body.action-dock-hidden #showActionDockBtn{display:inline-flex !important;}
   margin:6px 0 12px 18px;
   padding:0;
 }
-
-
-/* v10.39.22 top-banner spacing fix */
-#topBadge{
-  z-index: 1002;
-}
-.noticeBanner{
-  top: 106px;
-}
-@media (max-width: 720px){
-  .noticeBanner{
-    top: 118px;
-    left: 16px;
-    right: 16px;
-    font-size: 12px;
-    line-height: 1.25;
-  }
-}
