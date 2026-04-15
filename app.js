@@ -1,4 +1,4 @@
-const APP_VERSION='v10.39.20';
+const APP_VERSION='v10.39.22';
 const FishingVocab=window.FishingVocab || {};
 const FISHING_STORAGE_KEY='fishingLogbook.entries';
 const FISHING_ANGLER_SETTINGS_KEY='fishingLogbook.anglerSettings';
@@ -2825,10 +2825,12 @@ $('closeLogSheetBtn').addEventListener('click',()=>{
 $('closeAnglerSheetBtn').addEventListener('click',()=>closeSheet($('anglerSheet')));
 
 if(window.FishingPredictionReadme?.apply) window.FishingPredictionReadme.apply();
+if(window.FishingPredictiveController?.wire) window.FishingPredictiveController.wire();
 if($('predictBtn')) $('predictBtn').addEventListener('click',()=>{
   cancelAddMode();
   closeAllSheets();
   if(window.FishingPredictionReadme?.apply) window.FishingPredictionReadme.apply();
+if(window.FishingPredictiveController?.wire) window.FishingPredictiveController.wire();
   openSheet($('predictSheet'));
   setStatus('Prediction planning screen opened.', 2600);
 });
